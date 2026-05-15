@@ -811,8 +811,12 @@ function _renderSancsList() {
   const a = el('sancs-area');
   if (!a) return;
 
+  function getCheckedSancs() {
+    return [...document.querySelectorAll('.sanc-check')].filter(c => c.checked);
+  }
+
   function updateBulkBar() {
-    const checked = document.querySelectorAll('.sanc-check:checked');
+    const checked = getCheckedSancs();
     const bar = el('sanc-bulk-bar');
     if (!bar) return;
     bar.classList.toggle('hidden', checked.length === 0);
@@ -855,23 +859,27 @@ function _renderSancsList() {
     bulkSetLoc.onclick = async () => {
       const loc = el('sanc-bulk-loc').value;
       if (!loc) { alert('请先选择所处地'); return; }
-      const ids = [...document.querySelectorAll('.sanc-check:checked')].map(c => c.dataset.id);
-      if (!ids.length) return;
-      await Promise.all(ids.map(id => API.updateSanctuary(id, { location: loc })));
-      S.sanctuaries = await API.getSanctuaries();
-      _renderSancsList(); renderCard1();
+      const ids = getCheckedSancs().map(c => c.dataset.id);
+      if (!ids.length) { alert('请先勾选庇护所'); return; }
+      try {
+        await Promise.all(ids.map(id => API.updateSanctuary(id, { location: loc })));
+        S.sanctuaries = await API.getSanctuaries();
+        _renderSancsList(); renderCard1();
+      } catch (e) { alert('操作失败：' + e.message); }
     };
   }
 
   const bulkDel = el('sanc-bulk-del');
   if (bulkDel) {
     bulkDel.onclick = async () => {
-      const ids = [...document.querySelectorAll('.sanc-check:checked')].map(c => c.dataset.id);
-      if (!ids.length) return;
+      const ids = getCheckedSancs().map(c => c.dataset.id);
+      if (!ids.length) { alert('请先勾选庇护所'); return; }
       if (!confirm(`确认删除选中的 ${ids.length} 个庇护所？`)) return;
-      await Promise.all(ids.map(id => API.deleteSanctuary(id)));
-      S.sanctuaries = await API.getSanctuaries();
-      _renderSancsList(); renderCard1();
+      try {
+        await Promise.all(ids.map(id => API.deleteSanctuary(id)));
+        S.sanctuaries = await API.getSanctuaries();
+        _renderSancsList(); renderCard1();
+      } catch (e) { alert('操作失败：' + e.message); }
     };
   }
 }
@@ -986,8 +994,12 @@ function _renderSpiritsList() {
   const a = el('spirits-area');
   if (!a) return;
 
+  function getCheckedSpirits() {
+    return [...document.querySelectorAll('.spr-check')].filter(c => c.checked);
+  }
+
   function updateBulkBar() {
-    const checked = document.querySelectorAll('.spr-check:checked');
+    const checked = getCheckedSpirits();
     const bar = el('spr-bulk-bar');
     if (!bar) return;
     bar.classList.toggle('hidden', checked.length === 0);
@@ -1029,23 +1041,27 @@ function _renderSpiritsList() {
     bulkSetElem.onclick = async () => {
       const elem = el('spr-bulk-elem').value;
       if (!elem) { alert('请选择系别'); return; }
-      const ids = [...document.querySelectorAll('.spr-check:checked')].map(c => c.dataset.id);
-      if (!ids.length) return;
-      await Promise.all(ids.map(id => API.updateSpirit(id, { element: elem })));
-      S.spirits = await API.getSpirits();
-      _renderSpiritsList();
+      const ids = getCheckedSpirits().map(c => c.dataset.id);
+      if (!ids.length) { alert('请先勾选精灵'); return; }
+      try {
+        await Promise.all(ids.map(id => API.updateSpirit(id, { element: elem })));
+        S.spirits = await API.getSpirits();
+        _renderSpiritsList();
+      } catch (e) { alert('操作失败：' + e.message); }
     };
   }
 
   const bulkDel = el('spr-bulk-del');
   if (bulkDel) {
     bulkDel.onclick = async () => {
-      const ids = [...document.querySelectorAll('.spr-check:checked')].map(c => c.dataset.id);
-      if (!ids.length) return;
+      const ids = getCheckedSpirits().map(c => c.dataset.id);
+      if (!ids.length) { alert('请先勾选精灵'); return; }
       if (!confirm(`确认删除选中的 ${ids.length} 个精灵？\n注意：删除后不会自动从赛季精灵列表中移除。`)) return;
-      await Promise.all(ids.map(id => API.deleteSpirit(id)));
-      S.spirits = await API.getSpirits();
-      _renderSpiritsList();
+      try {
+        await Promise.all(ids.map(id => API.deleteSpirit(id)));
+        S.spirits = await API.getSpirits();
+        _renderSpiritsList();
+      } catch (e) { alert('操作失败：' + e.message); }
     };
   }
 }
