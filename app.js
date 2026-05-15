@@ -19,6 +19,7 @@ const S = {
   sancRatings:        [],
   showFruitFirst:     false,
   collapsedLocations: new Set(),
+  fruitFilter:        { elements: new Set(), mode: 'union' },
 };
 
 // ══ 工具函数 ══════════════════════════════════════════════════
@@ -427,21 +428,94 @@ function buildRatingBar(sanc, ratings, redCnt, yelCnt, grnCnt) {
 // ══ 卡片2：精灵果实 ══════════════════════════════════════════
 function renderCard2() {
   const c = el('fruit-list');
-  const rawSpirits = curSeason()?.spirits;
-  if (!rawSpirits?.length) {
-    c.innerHTML = '<p class="empty-msg">🍎 当前赛季暂无精灵信息</p>';
+
+  if (!S.spirits.length) {
+    c.innerHTML = '<p class="empty-msg">🍎 精灵库为空，管理员请先到「管理精灵」中添加精灵~</p>';
     return;
   }
-  const names = rawSpirits.map(sName).filter(Boolean);
-  c.innerHTML = '';
-  names.forEach(name => {
-    const elems   = sElements(name);
-    const holders = S.userFruits.filter(f => f.spirit_name === name && f.obtained);
-    const mine    = S.userFruits.find(f => f.spirit_name === name && f.user_id === S.user.id);
+
+  const seasonSpiritNames = new Set((curSeason()?.spirits || []).map(sName).filter(Boolean));
+  const ff = S.fruitFilter;
+
+  // 系别筛选
+  let displaySpirits = S.spirits;
+  if (ff.elements.size > 0) {
+    const sel = [...ff.elements];
+    displaySpirits = S.spirits.filter(sp => {
+      const spElems = (sp.element || '').split(',').filter(Boolean);
+      return ff.mode === 'union'
+        ? sel.some(e => spElems.includes(e))
+        : sel.every(e => spElems.includes(e));
+    });
+  }
+
+  // 赛季精灵置顶
+  displaySpirits = [
+    ...displaySpirits.filter(sp =>  seasonSpiritNames.has(sp.name)),
+    ...displaySpirits.filter(sp => !seasonSpiritNames.has(sp.name)),
+  ];
+
+  // 精灵库中实际出现的系别（保持 ELEMENTS 顺序）
+  const allUsedElems = ELEMENTS.filter(e =>
+    S.spirits.some(sp => (sp.element || '').split(',').includes(e))
+  );
+
+  const modeHtml = ff.elements.size >= 2 ? `
+    <div class="filter-mode-toggle">
+      <span class="filter-mode-label">多选：</span>
+      <button type="button" class="mode-btn${ff.mode === 'union'        ? ' active' : ''}" data-mode="union">并集</button>
+      <button type="button" class="mode-btn${ff.mode === 'intersection' ? ' active' : ''}" data-mode="intersection">交集</button>
+    </div>` : '';
+
+  c.innerHTML = `
+    <div class="fruit-filter-bar">
+      <div class="element-filter fruit-elem-wrap">
+        <button type="button" class="elem-btn${ff.elements.size === 0 ? ' active' : ''}" data-action="clear-ef">全部</button>
+        ${allUsedElems.map(e => `
+          <button type="button" class="elem-btn${ff.elements.has(e) ? ' active' : ''}" data-elem="${e}">${e}</button>
+        `).join('')}
+      </div>
+      ${modeHtml}
+    </div>
+    <div id="fruit-rows"></div>`;
+
+  c.querySelector('[data-action="clear-ef"]').onclick = () => { ff.elements.clear(); renderCard2(); };
+  c.querySelectorAll('.fruit-elem-wrap .elem-btn[data-elem]').forEach(btn => {
+    btn.onclick = () => {
+      const e = btn.dataset.elem;
+      if (ff.elements.has(e)) ff.elements.delete(e); else ff.elements.add(e);
+      renderCard2();
+    };
+  });
+  c.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.onclick = () => { ff.mode = btn.dataset.mode; renderCard2(); };
+  });
+
+  const rowsEl = el('fruit-rows');
+  if (!displaySpirits.length) {
+    rowsEl.innerHTML = '<p class="empty-msg">没有符合筛选条件的精灵~</p>';
+    return;
+  }
+
+  let prevWasSeason = null;
+  displaySpirits.forEach((sp, i) => {
+    const { name } = sp;
+    const isSeason = seasonSpiritNames.has(name);
+    const elems    = (sp.element || '').split(',').filter(Boolean);
+    const holders  = S.userFruits.filter(f => f.spirit_name === name && f.obtained);
+    const mine     = S.userFruits.find(f => f.spirit_name === name && f.user_id === S.user.id);
     const obtained = mine?.obtained || false;
 
+    // 赛季组与普通组之间加分割线
+    if (i > 0 && prevWasSeason && !isSeason) {
+      const sep = document.createElement('div');
+      sep.className = 'fruit-section-sep';
+      rowsEl.appendChild(sep);
+    }
+    prevWasSeason = isSeason;
+
     const row = document.createElement('div');
-    row.className = 'fruit-row';
+    row.className = 'fruit-row' + (isSeason ? ' season-spirit' : '');
 
     const nameDiv = document.createElement('div');
     nameDiv.className = 'fruit-name';
@@ -453,6 +527,12 @@ function renderCard2() {
       badge.textContent = e;
       nameDiv.appendChild(badge);
     });
+    if (isSeason) {
+      const st = document.createElement('span');
+      st.className = 'season-tag';
+      st.textContent = '本季';
+      nameDiv.appendChild(st);
+    }
     row.appendChild(nameDiv);
 
     const holdersDiv = document.createElement('div');
@@ -465,16 +545,19 @@ function renderCard2() {
     });
     row.appendChild(holdersDiv);
 
-    const btn = document.createElement('button');
-    btn.className = `my-fruit-btn ${obtained ? 'fruit-yes' : 'fruit-no'}`;
-    btn.textContent = obtained ? '✓ 已获取' : '+ 标记获取';
-    btn.onclick = async () => {
-      await API.upsertUserFruit(S.user.id, S.currentSeasonId, name, !obtained);
-      S.userFruits = await API.getUserFruits(S.currentSeasonId);
-      renderCard2();
-    };
-    row.appendChild(btn);
-    c.appendChild(row);
+    if (isSeason) {
+      const btn = document.createElement('button');
+      btn.className = `my-fruit-btn ${obtained ? 'fruit-yes' : 'fruit-no'}`;
+      btn.textContent = obtained ? '✓ 已获取' : '+ 标记获取';
+      btn.onclick = async () => {
+        await API.upsertUserFruit(S.user.id, S.currentSeasonId, name, !obtained);
+        S.userFruits = await API.getUserFruits(S.currentSeasonId);
+        renderCard2();
+      };
+      row.appendChild(btn);
+    }
+
+    rowsEl.appendChild(row);
   });
 }
 
