@@ -1181,3 +1181,71 @@ hr           { border: none; border-top: 2px dashed var(--border); margin: 16px 
   margin: 4px 0 10px;
   border-top: 2px dashed var(--border);
 }
+
+
+/* ══ 庇护所卡头"查看位置"按钮 ═══════════════════════════════════ */
+.map-view-btn {
+  font-size: 11px;
+  color: var(--accent-dk);
+  background: rgba(127,181,160,0.18);
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  padding: 2px 9px;
+  cursor: pointer;
+  margin-left: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  line-height: 1.5;
+  transition: background .15s, color .15s;
+  vertical-align: middle;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.map-view-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+
+/* ══ 小地图弹窗 ═══════════════════════════════════════════════ */
+.map-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  cursor: pointer;
+  padding: 24px 20px;
+  backdrop-filter: blur(5px);
+}
+
+.map-popup-name {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+  pointer-events: none;
+}
+
+.map-popup-overlay img {
+  max-width: min(90vw, 800px);
+  max-height: 72vh;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  display: block;
+}
+
+.map-popup-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  pointer-events: none;
+}

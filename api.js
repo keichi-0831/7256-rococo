@@ -73,8 +73,8 @@ const API = {
     if (error) throw new Error(error.message);
   },
 
-  async createSanctuary(name, maxFruits, location = '风眠省') {
-    const { error } = await db.from('sanctuaries').insert({ name, max_fruits: maxFruits, location });
+  async createSanctuary(name, maxFruits, location = '风眠省', mapImageUrl = '') {
+    const { error } = await db.from('sanctuaries').insert({ name, max_fruits: maxFruits, location, map_image_url: mapImageUrl });
     if (error) throw new Error(error.message);
   },
 

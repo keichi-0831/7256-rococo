@@ -128,6 +128,18 @@ function closeModal() {
   el('modal-body').innerHTML = '';
 }
 
+// ══ 小地图弹窗 ════════════════════════════════════════════════
+function showMapPopup(url, name) {
+  el('map-popup-name').textContent = '📍 ' + name;
+  el('map-popup-img').src = url;
+  el('map-popup').classList.remove('hidden');
+}
+
+function closeMapPopup() {
+  el('map-popup').classList.add('hidden');
+  el('map-popup-img').src = '';
+}
+
 // ══ 数据加载 ══════════════════════════════════════════════════
 async function loadAll() {
   [S.seasons, S.sanctuaries, S.spirits, S.users, S.sancStatuses, S.sancRatings] = await Promise.all([
@@ -273,6 +285,13 @@ function renderCard1() {
         hdr.innerHTML = `
           <span class="sanc-name">🏕️ ${sanc.name}</span>
           <span class="sanc-meta">${openIds.length} 人已开启 · 每人最多 ${sanc.max_fruits} 个果实</span>`;
+        if (sanc.map_image_url) {
+          const mapBtn = document.createElement('button');
+          mapBtn.className = 'map-view-btn';
+          mapBtn.textContent = '查看位置';
+          mapBtn.onclick = e => { e.stopPropagation(); showMapPopup(sanc.map_image_url, sanc.name); };
+          hdr.appendChild(mapBtn);
+        }
         item.appendChild(hdr);
 
         const body = document.createElement('div');
@@ -1008,6 +1027,9 @@ function showManageSanctuaries() {
     <div class="form-row"><label>果实槽位数（每位玩家最多放几个）</label>
       <select id="nsanc-slots"><option value="2">2 个（默认）</option><option value="1">1 个</option></select>
     </div>
+    <div class="form-row"><label>位置图片链接 <span class="hint">（可选，粘贴 GitHub Issue 图片地址）</span></label>
+      <input id="nsanc-map" type="url" placeholder="https://...（可留空）">
+    </div>
     <button class="btn btn-primary" id="nsanc-ok">创建庇护所</button>
     <details class="import-section">
       <summary>📥 JSON 批量导入庇护所</summary>
@@ -1021,14 +1043,16 @@ function showManageSanctuaries() {
   _renderSancsList();
 
   el('nsanc-ok').onclick = async () => {
-    const name  = el('nsanc-name').value.trim();
-    const slots = parseInt(el('nsanc-slots').value);
-    const loc   = el('nsanc-loc').value;
+    const name   = el('nsanc-name').value.trim();
+    const slots  = parseInt(el('nsanc-slots').value);
+    const loc    = el('nsanc-loc').value;
+    const mapUrl = el('nsanc-map').value.trim();
     if (!name) { alert('请填写庇护所名称'); return; }
     try {
-      await API.createSanctuary(name, slots, loc);
+      await API.createSanctuary(name, slots, loc, mapUrl);
       S.sanctuaries = await API.getSanctuaries();
       el('nsanc-name').value = '';
+      el('nsanc-map').value = '';
       _renderSancsList(); renderCard1();
     } catch (e) { alert('创建失败：' + e.message); }
   };
@@ -1143,6 +1167,9 @@ function adminEditSanc(id) {
         <option value="1" ${s.max_fruits === 1 ? 'selected' : ''}>1 个</option>
       </select>
     </div>
+    <div class="form-row"><label>位置图片链接 <span class="hint">（粘贴 GitHub Issue 图片地址，留空则不显示"查看位置"）</span></label>
+      <input id="es-map" type="url" value="${s.map_image_url || ''}" placeholder="https://...">
+    </div>
     <div class="flex-row">
       <button class="btn btn-primary" id="es-ok">保存修改</button>
       <button class="btn btn-secondary" id="es-back">← 返回列表</button>
@@ -1150,12 +1177,13 @@ function adminEditSanc(id) {
   `);
   el('es-back').onclick = () => showManageSanctuaries();
   el('es-ok').onclick = async () => {
-    const name      = el('es-name').value.trim();
-    const maxFruits = parseInt(el('es-slots').value);
-    const location  = el('es-loc').value;
+    const name        = el('es-name').value.trim();
+    const maxFruits   = parseInt(el('es-slots').value);
+    const location    = el('es-loc').value;
+    const mapImageUrl = el('es-map').value.trim();
     if (!name) { alert('请填写庇护所名称'); return; }
     try {
-      await API.updateSanctuary(id, { name, max_fruits: maxFruits, location });
+      await API.updateSanctuary(id, { name, max_fruits: maxFruits, location, map_image_url: mapImageUrl });
       S.sanctuaries = await API.getSanctuaries();
       renderCard1();
       showManageSanctuaries();
