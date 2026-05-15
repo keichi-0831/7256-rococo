@@ -677,48 +677,70 @@ function renderCard2() {
   });
 }
 
-// ══ 精灵选择弹窗（带系别筛选） ════════════════════════════════
+// ══ 精灵选择弹窗（带系别筛选，全局精灵库，赛季精灵置顶闪光） ═══
 function openSpiritPicker(sanc, slot, spirits, current) {
-  const names = (spirits || []).map(sName).filter(Boolean);
-  if (!names.length) {
-    alert('当前赛季还没有精灵信息，管理员请先在「管理赛季」中勾选精灵~');
+  if (!S.spirits.length) {
+    alert('精灵库为空，管理员请先在「管理精灵」中添加精灵~');
     return;
   }
 
-  // 带全局系别信息的精灵对象列表
-  const spiritObjs = names.map(name => ({ name, element: sElement(name) }));
+  const seasonNames = new Set((spirits || []).map(sName).filter(Boolean));
+
+  // 所有精灵，赛季精灵置顶
+  const allObjs = [
+    ...S.spirits.filter(sp =>  seasonNames.has(sp.name)),
+    ...S.spirits.filter(sp => !seasonNames.has(sp.name)),
+  ];
+
   let activeElem = '';
 
   function renderPicker() {
-    const usedElems = [...new Set(spiritObjs.flatMap(s => s.element ? s.element.split(',') : []))];
-    const filtered  = activeElem ? spiritObjs.filter(s => (s.element||'').split(',').includes(activeElem)) : spiritObjs;
+    const usedElems = ELEMENTS.filter(e => allObjs.some(s => (s.element||'').split(',').includes(e)));
+
+    const seasonFiltered    = (activeElem ? allObjs.filter(s => (s.element||'').split(',').includes(activeElem)) : allObjs)
+                                .filter(s =>  seasonNames.has(s.name));
+    const nonSeasonFiltered = (activeElem ? allObjs.filter(s => (s.element||'').split(',').includes(activeElem)) : allObjs)
+                                .filter(s => !seasonNames.has(s.name));
+
+    const pickBtn = (s, isSeason) => {
+      const isCur = s.name === current;
+      const border = isSeason
+        ? (isCur ? '3px solid #fff'              : '2px solid rgba(255,220,50,0.85)')
+        : (isCur ? '3px solid #333'              : '2px solid transparent');
+      const shadow = isSeason
+        ? '0 3px 8px rgba(0,0,0,.22),0 0 10px rgba(255,210,0,0.38)'
+        : '0 3px 8px rgba(0,0,0,.2)';
+      const extraStyle = isSeason ? 'position:relative;overflow:hidden;' : '';
+      return `<button class="spirit-pick-btn${isSeason ? ' season-pick' : ''}" data-spirit="${s.name}"
+        style="background:${spiritColor(s.name)};color:#fff;border:${border};
+        border-radius:12px;padding:9px 18px;cursor:pointer;font-size:14px;
+        font-weight:700;font-family:inherit;box-shadow:${shadow};
+        transition:transform .15s;${extraStyle}"
+        onmouseover="this.style.transform='translateY(-2px)'"
+        onmouseout="this.style.transform=''">${s.name}</button>`;
+    };
 
     let html = `<div class="modal-title">🍃 选择精灵 — ${sanc.name} 槽位${slot}</div>
       <div class="element-filter">
         <button class="elem-btn${!activeElem?' active':''}" data-elem="">全部</button>
-        ${ELEMENTS.filter(e => usedElems.includes(e)).map(e =>
-          `<button class="elem-btn${activeElem===e?' active':''}" data-elem="${e}">${e}</button>`
-        ).join('')}
-      </div>
-      <div class="flex-row spirit-picks" style="margin-bottom:16px;row-gap:10px">`;
+        ${usedElems.map(e => `<button class="elem-btn${activeElem===e?' active':''}" data-elem="${e}">${e}</button>`).join('')}
+      </div>`;
 
-    if (filtered.length) {
-      filtered.forEach(s => {
-        const isCur = s.name === current;
-        html += `<button class="spirit-pick-btn" data-spirit="${s.name}"
-          style="background:${spiritColor(s.name)};color:#fff;
-          border:${isCur ? '3px solid #333' : '2px solid transparent'};
-          border-radius:12px;padding:9px 18px;cursor:pointer;
-          font-size:14px;font-weight:700;font-family:inherit;
-          box-shadow:0 3px 8px rgba(0,0,0,.2);transition:transform .15s"
-          onmouseover="this.style.transform='translateY(-2px)'"
-          onmouseout="this.style.transform=''">${s.name}</button>`;
-      });
+    if (!seasonFiltered.length && !nonSeasonFiltered.length) {
+      html += `<p style="color:var(--text-lt);font-size:13px;padding:12px 0">暂无该系别的精灵</p>`;
     } else {
-      html += `<span style="color:var(--text-lt);font-size:13px;padding:8px 0">暂无该系别的精灵</span>`;
+      if (seasonFiltered.length) {
+        html += `<div class="pick-section-label">✨ 本赛季异色</div>
+          <div class="flex-row spirit-picks" style="margin-bottom:${nonSeasonFiltered.length?'12px':'16px'};row-gap:10px">
+          ${seasonFiltered.map(s => pickBtn(s, true)).join('')}</div>`;
+      }
+      if (nonSeasonFiltered.length) {
+        html += `${seasonFiltered.length ? '<div class="pick-section-label" style="opacity:.6">其他精灵</div>' : ''}
+          <div class="flex-row spirit-picks" style="margin-bottom:16px;row-gap:10px">
+          ${nonSeasonFiltered.map(s => pickBtn(s, false)).join('')}</div>`;
+      }
     }
 
-    html += '</div>';
     if (current) html += `<button id="btn-clear-slot" class="btn btn-danger btn-sm">🗑 清除此槽位</button>`;
 
     showModal(html);
@@ -730,21 +752,24 @@ function openSpiritPicker(sanc, slot, spirits, current) {
     document.querySelectorAll('.spirit-pick-btn').forEach(btn => {
       btn.onclick = () => {
         const spiritName = btn.dataset.spirit;
-        // 乐观更新本地状态
+        const isSeason   = seasonNames.has(spiritName);
         S.sancFruits = S.sancFruits.filter(f => !(f.sanctuary_id === sanc.id && f.user_id === S.user.id && f.season_id === S.currentSeasonId && f.slot === slot));
         S.sancFruits.push({ user_id: S.user.id, sanctuary_id: sanc.id, season_id: S.currentSeasonId, spirit_name: spiritName, slot });
         const sRec = S.sancStatuses.find(s => s.sanctuary_id === sanc.id && s.user_id === S.user.id);
         if (sRec) sRec.is_open = true;
         else S.sancStatuses.push({ user_id: S.user.id, sanctuary_id: sanc.id, is_open: true });
-        const fRec = S.userFruits.find(f => f.spirit_name === spiritName && f.user_id === S.user.id && f.season_id === S.currentSeasonId);
-        if (fRec) fRec.obtained = true;
-        else S.userFruits.push({ user_id: S.user.id, season_id: S.currentSeasonId, spirit_name: spiritName, obtained: true });
+        if (isSeason) {
+          const fRec = S.userFruits.find(f => f.spirit_name === spiritName && f.user_id === S.user.id && f.season_id === S.currentSeasonId);
+          if (fRec) fRec.obtained = true;
+          else S.userFruits.push({ user_id: S.user.id, season_id: S.currentSeasonId, spirit_name: spiritName, obtained: true });
+        }
         closeModal(); renderAll();
-        Promise.all([
+        const writes = [
           API.upsertSanctuaryFruit(S.user.id, sanc.id, S.currentSeasonId, spiritName, slot),
           API.upsertSanctuaryStatus(S.user.id, sanc.id, true),
-          API.upsertUserFruit(S.user.id, S.currentSeasonId, spiritName, true),
-        ]).catch(e => alert('同步失败：' + e.message));
+        ];
+        if (isSeason) writes.push(API.upsertUserFruit(S.user.id, S.currentSeasonId, spiritName, true));
+        Promise.all(writes).catch(e => alert('同步失败：' + e.message));
         scheduleRefresh();
       };
     });

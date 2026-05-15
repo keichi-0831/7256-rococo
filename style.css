@@ -837,6 +837,34 @@ hr           { border: none; border-top: 2px dashed var(--border); margin: 16px 
 /* 精灵选择区域限高，可滚动 */
 .spirit-picks { max-height: 280px; overflow-y: auto; }
 
+/* 赛季精灵分组标签 */
+.pick-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-dk);
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+
+/* 赛季精灵按钮扫光动画 */
+@keyframes pick-shine {
+  0%   { left: -55%; opacity: 0; }
+  20%  { opacity: 0.65; }
+  80%  { opacity: 0.65; }
+  100% { left: 115%; opacity: 0; }
+}
+.season-pick::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -55%;
+  width: 30%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  animation: pick-shine 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
 
 /* ══ 精灵系别徽章（精灵果实列表） ══════════════════════════ */
 .elem-badge {
