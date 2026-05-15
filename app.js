@@ -52,8 +52,14 @@ function curSeason() { return S.seasons.find(s => s.id === S.currentSeasonId); }
 // 从 seasons.spirits 的元素（可能是旧的字符串或 {name,element} 对象）取出精灵名
 function sName(s) { return typeof s === 'string' ? s : (s?.name || ''); }
 
-// 从全局精灵库查元素系别
+// 从全局精灵库查元素系别（返回逗号分隔字符串，如 "火" 或 "火,水"）
 function sElement(name) { return S.spirits.find(sp => sp.name === name)?.element || ''; }
+
+// 返回系别数组（最多2个），方便遍历显示
+function sElements(name) {
+  const e = sElement(name);
+  return e ? e.split(',').filter(Boolean) : [];
+}
 
 // ══ 精灵勾选清单（用于赛季编辑） ══════════════════════════════
 // container: DOM 元素；selectedNames: Set<string>（持久化）
@@ -66,8 +72,8 @@ function buildSpiritChecklist(container, selectedNames) {
       return;
     }
 
-    const usedElems = [...new Set(S.spirits.map(s => s.element).filter(Boolean))];
-    const visible   = filterElem ? S.spirits.filter(s => s.element === filterElem) : S.spirits;
+    const usedElems = [...new Set(S.spirits.flatMap(s => s.element ? s.element.split(',') : []))];
+    const visible   = filterElem ? S.spirits.filter(s => (s.element || '').split(',').includes(filterElem)) : S.spirits;
 
     container.innerHTML = `
       <div class="sc-stats">已选 <b class="sc-count">${selectedNames.size}</b> 个精灵</div>
@@ -83,7 +89,7 @@ function buildSpiritChecklist(container, selectedNames) {
               <label class="spirit-check-item">
                 <input type="checkbox" class="sp-chk" value="${sp.name}" ${selectedNames.has(sp.name)?'checked':''}>
                 <span class="sc-name">${sp.name}</span>
-                ${sp.element ? `<span class="elem-badge">${sp.element}</span>` : ''}
+                ${(sp.element||'').split(',').filter(Boolean).map(e=>`<span class="elem-badge">${e}</span>`).join('')}
               </label>`).join('')
           : '<p style="color:var(--text-lt);font-size:12px;padding:8px 0">暂无该系别精灵</p>'
         }
@@ -429,7 +435,7 @@ function renderCard2() {
   const names = rawSpirits.map(sName).filter(Boolean);
   c.innerHTML = '';
   names.forEach(name => {
-    const elem    = sElement(name);
+    const elems   = sElements(name);
     const holders = S.userFruits.filter(f => f.spirit_name === name && f.obtained);
     const mine    = S.userFruits.find(f => f.spirit_name === name && f.user_id === S.user.id);
     const obtained = mine?.obtained || false;
@@ -441,12 +447,12 @@ function renderCard2() {
     nameDiv.className = 'fruit-name';
     nameDiv.style.color = spiritColor(name);
     nameDiv.textContent = name;
-    if (elem) {
+    elems.forEach(e => {
       const badge = document.createElement('span');
       badge.className = 'elem-badge';
-      badge.textContent = elem;
+      badge.textContent = e;
       nameDiv.appendChild(badge);
-    }
+    });
     row.appendChild(nameDiv);
 
     const holdersDiv = document.createElement('div');
@@ -485,8 +491,8 @@ function openSpiritPicker(sanc, slot, spirits, current) {
   let activeElem = '';
 
   function renderPicker() {
-    const usedElems = [...new Set(spiritObjs.map(s => s.element).filter(Boolean))];
-    const filtered  = activeElem ? spiritObjs.filter(s => s.element === activeElem) : spiritObjs;
+    const usedElems = [...new Set(spiritObjs.flatMap(s => s.element ? s.element.split(',') : []))];
+    const filtered  = activeElem ? spiritObjs.filter(s => (s.element||'').split(',').includes(activeElem)) : spiritObjs;
 
     let html = `<div class="modal-title">🍃 选择精灵 — ${sanc.name} 槽位${slot}</div>
       <div class="element-filter">
@@ -946,8 +952,12 @@ function showManageSpirits() {
     <div class="modal-sub">新增精灵</div>
     <div class="add-spirit-form">
       <input id="nspr-name" type="text" placeholder="精灵名称（如：异色火焰犬）">
-      <select id="nspr-elem">
+      <select id="nspr-elem1">
         <option value="">— 系别 —</option>
+        ${ELEMENTS.map(e => `<option value="${e}">${e}</option>`).join('')}
+      </select>
+      <select id="nspr-elem2">
+        <option value="">（第二系别）</option>
         ${ELEMENTS.map(e => `<option value="${e}">${e}</option>`).join('')}
       </select>
       <button class="btn btn-primary btn-sm" id="nspr-ok">添加</button>
@@ -955,7 +965,7 @@ function showManageSpirits() {
     <details class="import-section">
       <summary>📥 JSON 批量导入精灵</summary>
       <div class="import-content">
-        <code class="import-format-hint">[{"name":"异色火焰犬","element":"火"}, ...]</code>
+        <code class="import-format-hint">[{"name":"异色火焰犬","element":"火"}, {"name":"异色双系精灵","element":"火,水"}, ...]</code>
         <textarea id="spirits-import-ta" placeholder='[{"name":"异色火焰犬","element":"火"}]'></textarea>
         <div><button class="btn btn-secondary btn-sm" id="btn-import-spirits">✅ 导入</button></div>
       </div>
@@ -964,14 +974,17 @@ function showManageSpirits() {
   _renderSpiritsList();
 
   el('nspr-ok').onclick = async () => {
-    const name = el('nspr-name').value.trim();
-    const elem = el('nspr-elem').value;
+    const name  = el('nspr-name').value.trim();
+    const elem1 = el('nspr-elem1').value;
+    const elem2 = el('nspr-elem2').value;
+    const elem  = [elem1, elem2].filter(Boolean).join(',');
     if (!name) { alert('请填写精灵名称'); return; }
     try {
       await API.createSpirit(name, elem);
       S.spirits = await API.getSpirits();
       el('nspr-name').value = '';
-      el('nspr-elem').value = '';
+      el('nspr-elem1').value = '';
+      el('nspr-elem2').value = '';
       _renderSpiritsList();
     } catch (e) { alert('添加失败：' + (e.message.includes('spirits_name_unique') ? '该精灵已存在' : e.message)); }
   };
@@ -1021,7 +1034,7 @@ function _renderSpiritsList() {
         <input type="checkbox" class="spr-check" data-id="${s.id}">
         <div class="list-item-main">
           <b>${s.name}</b>
-          ${s.element ? `<span class="elem-badge" style="margin-left:6px">${s.element}</span>` : ''}
+          ${(s.element||'').split(',').filter(Boolean).map(e=>`<span class="elem-badge" style="margin-left:6px">${e}</span>`).join('')}
         </div>
         <button class="btn btn-danger btn-sm" onclick="adminDelSpirit('${s.id}','${s.name}')">删除</button>
       </div>`).join('')}
