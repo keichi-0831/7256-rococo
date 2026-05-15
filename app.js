@@ -233,10 +233,10 @@ function renderCard1() {
   if (S.showFruitFirst || S.sortByRating) {
     const ratingScore = sanc => {
       const rs = S.sancRatings.filter(r => r.sanctuary_id === sanc.id);
-      if (!rs.length) return -2;
+      if (!rs.length) return -1;
       const grn = rs.filter(r => r.rating === 2).length;
       const red = rs.filter(r => r.rating === 0).length;
-      return (grn - red) / rs.length;
+      return grn - red;
     };
     displaySancs.sort((a, b) => {
       if (S.showFruitFirst) {
