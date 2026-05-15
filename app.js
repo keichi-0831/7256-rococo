@@ -18,6 +18,7 @@ const S = {
   userFruits:         [],
   sancRatings:        [],
   showFruitFirst:     false,
+  sortByRating:       false,
   collapsedLocations: new Set(),
   expandedComments:   new Set(),
   fruitFilter:        { elements: new Set(), mode: 'union' },
@@ -229,11 +230,22 @@ function renderCard1() {
   c.innerHTML = '';
 
   let displaySancs = [...S.sanctuaries];
-  if (S.showFruitFirst) {
+  if (S.showFruitFirst || S.sortByRating) {
+    const ratingScore = sanc => {
+      const rs = S.sancRatings.filter(r => r.sanctuary_id === sanc.id);
+      if (!rs.length) return -2;
+      const grn = rs.filter(r => r.rating === 2).length;
+      const red = rs.filter(r => r.rating === 0).length;
+      return (grn - red) / rs.length;
+    };
     displaySancs.sort((a, b) => {
-      const aHas = S.sancFruits.some(f => f.sanctuary_id === a.id) ? 1 : 0;
-      const bHas = S.sancFruits.some(f => f.sanctuary_id === b.id) ? 1 : 0;
-      return bHas - aHas;
+      if (S.showFruitFirst) {
+        const aHas = S.sancFruits.some(f => f.sanctuary_id === a.id) ? 1 : 0;
+        const bHas = S.sancFruits.some(f => f.sanctuary_id === b.id) ? 1 : 0;
+        if (bHas !== aHas) return bHas - aHas;
+      }
+      if (S.sortByRating) return ratingScore(b) - ratingScore(a);
+      return 0;
     });
   }
 
@@ -1468,6 +1480,11 @@ function wireEvents() {
 
   el('chk-fruit-first').onchange = () => {
     S.showFruitFirst = el('chk-fruit-first').checked;
+    renderCard1();
+  };
+
+  el('chk-rating-sort').onchange = () => {
+    S.sortByRating = el('chk-rating-sort').checked;
     renderCard1();
   };
 

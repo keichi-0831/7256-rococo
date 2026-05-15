@@ -377,6 +377,12 @@ body {
   gap: 10px;
   flex-wrap: wrap;
 }
+.sanc-filter-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 4px 0 10px;
+}
 .check-label {
   display: flex;
   align-items: center;
