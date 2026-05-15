@@ -19,6 +19,7 @@ const S = {
   sancRatings:        [],
   showFruitFirst:     false,
   collapsedLocations: new Set(),
+  expandedComments:   new Set(),
   fruitFilter:        { elements: new Set(), mode: 'union' },
 };
 
@@ -405,28 +406,35 @@ function getRatingLabel(red, yel, grn) {
 
 function buildRatingBar(sanc, ratings, redCnt, yelCnt, grnCnt) {
   const myRating = ratings.find(r => r.user_id === S.user.id);
-  const bar = document.createElement('div');
-  bar.className = 'rating-bar';
-
-  [
+  const CFGS = [
     { value: 0, label: '不要来',   emoji: '🔴', cls: 'rating-bad',  count: redCnt },
     { value: 1, label: '凑和吧',   emoji: '🟡', cls: 'rating-ok',   count: yelCnt },
     { value: 2, label: '风水宝地', emoji: '🟢', cls: 'rating-good', count: grnCnt },
-  ].forEach(cfg => {
+  ];
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rating-wrapper';
+
+  // ── 评分栏 ──
+  const bar = document.createElement('div');
+  bar.className = 'rating-bar';
+
+  CFGS.forEach(cfg => {
     const isActive = myRating?.rating === cfg.value;
     const btn = document.createElement('button');
     btn.className = `rating-btn ${cfg.cls}${isActive ? ' active' : ''}`;
     btn.innerHTML = `${cfg.emoji} ${cfg.label}${cfg.count ? ` <b>${cfg.count}</b>` : ''}`;
     btn.title = isActive ? '再次点击可取消评价' : '';
     btn.onclick = () => {
+      const existingComment = myRating?.comment || '';
       if (isActive) {
         S.sancRatings = S.sancRatings.filter(r => !(r.user_id === S.user.id && r.sanctuary_id === sanc.id));
         API.deleteSanctuaryRating(S.user.id, sanc.id).catch(e => alert('同步失败：' + e.message));
       } else {
         const rec = S.sancRatings.find(r => r.user_id === S.user.id && r.sanctuary_id === sanc.id);
         if (rec) rec.rating = cfg.value;
-        else S.sancRatings.push({ user_id: S.user.id, sanctuary_id: sanc.id, rating: cfg.value });
-        API.upsertSanctuaryRating(S.user.id, sanc.id, cfg.value).catch(e => alert('同步失败：' + e.message));
+        else S.sancRatings.push({ user_id: S.user.id, sanctuary_id: sanc.id, rating: cfg.value, comment: existingComment });
+        API.upsertSanctuaryRating(S.user.id, sanc.id, cfg.value, existingComment).catch(e => alert('同步失败：' + e.message));
       }
       renderCard1();
       scheduleRefresh();
@@ -443,7 +451,90 @@ function buildRatingBar(sanc, ratings, redCnt, yelCnt, grnCnt) {
     bar.appendChild(span);
   }
 
-  return bar;
+  // ── 评论切换按钮 ──
+  const commentedRatings = ratings.filter(r => r.comment && r.comment.trim());
+  const isExpanded = S.expandedComments.has(sanc.id);
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'comment-toggle-btn';
+  toggleBtn.textContent = `${isExpanded ? '▲' : '▼'} 评论(${commentedRatings.length}条)`;
+  bar.appendChild(toggleBtn);
+  wrapper.appendChild(bar);
+
+  // ── 评论区 ──
+  const section = document.createElement('div');
+  section.className = 'comment-section' + (isExpanded ? '' : ' hidden');
+
+  // 已有评论列表
+  if (commentedRatings.length) {
+    const list = document.createElement('div');
+    list.className = 'comment-list';
+    commentedRatings.forEach(r => {
+      const cfg = CFGS.find(c => c.value === r.rating);
+      const item = document.createElement('div');
+      item.className = 'comment-item';
+      const meta = document.createElement('span');
+      meta.className = 'comment-meta';
+      meta.textContent = `${cfg?.emoji || ''} ${r.user_id}`;
+      const text = document.createElement('span');
+      text.className = 'comment-text';
+      text.textContent = r.comment;
+      item.appendChild(meta);
+      item.appendChild(text);
+      list.appendChild(item);
+    });
+    section.appendChild(list);
+  } else {
+    const empty = document.createElement('p');
+    empty.className = 'comment-empty';
+    empty.textContent = '还没有评论，快来第一个说说吧~';
+    section.appendChild(empty);
+  }
+
+  // 我的评论表单
+  const myArea = document.createElement('div');
+  myArea.className = 'my-comment-area';
+  if (myRating) {
+    const cfg = CFGS.find(c => c.value === myRating.rating);
+    const lbl = document.createElement('div');
+    lbl.className = 'my-comment-label';
+    lbl.textContent = `${cfg?.emoji || ''} 我的评论：`;
+    const ta = document.createElement('textarea');
+    ta.className = 'my-comment-ta';
+    ta.placeholder = '说说你打分的理由~（可选）';
+    ta.rows = 2;
+    ta.value = myRating.comment || '';
+    const submitBtn = document.createElement('button');
+    submitBtn.className = 'btn btn-primary btn-sm';
+    submitBtn.textContent = '提交';
+    submitBtn.onclick = () => {
+      const comment = ta.value.trim();
+      const rec = S.sancRatings.find(r => r.user_id === S.user.id && r.sanctuary_id === sanc.id);
+      if (rec) rec.comment = comment;
+      renderCard1();
+      API.upsertSanctuaryRating(S.user.id, sanc.id, myRating.rating, comment).catch(e => alert('同步失败：' + e.message));
+      scheduleRefresh();
+    };
+    myArea.appendChild(lbl);
+    myArea.appendChild(ta);
+    myArea.appendChild(submitBtn);
+  } else {
+    const hint = document.createElement('p');
+    hint.className = 'comment-no-rating';
+    hint.textContent = '先给庇护所打个分，再来说说原因吧~';
+    myArea.appendChild(hint);
+  }
+  section.appendChild(myArea);
+
+  toggleBtn.onclick = () => {
+    const wasExpanded = S.expandedComments.has(sanc.id);
+    if (wasExpanded) S.expandedComments.delete(sanc.id);
+    else S.expandedComments.add(sanc.id);
+    section.classList.toggle('hidden', wasExpanded);
+    toggleBtn.textContent = `${wasExpanded ? '▼' : '▲'} 评论(${commentedRatings.length}条)`;
+  };
+
+  wrapper.appendChild(section);
+  return wrapper;
 }
 
 // ══ 卡片2：精灵果实 ══════════════════════════════════════════

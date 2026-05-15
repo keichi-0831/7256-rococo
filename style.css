@@ -486,13 +486,15 @@ body {
 .sanc-rated-ok   .sanc-header { background: #e8e090; }
 
 /* ══ 评价栏 ════════════════════════════════════════ */
+.rating-wrapper {
+  padding-top: 10px;
+  border-top: 2px dashed var(--border);
+  margin-top: 6px;
+}
 .rating-bar {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding-top: 10px;
-  border-top: 2px dashed var(--border);
-  margin-top: 6px;
   flex-wrap: wrap;
 }
 .rating-btn {
@@ -516,6 +518,98 @@ body {
 .rating-ok.active   { background: #d4a820; color: #fff; border-color: #d4a820; }
 .rating-good.active { background: #5aae5a; color: #fff; border-color: #5aae5a; }
 .rating-label { font-size: 12px; font-weight: 700; margin-left: 4px; }
+
+/* ══ 评价评论区 ════════════════════════════════════ */
+.comment-toggle-btn {
+  font-size: 11px;
+  color: var(--primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  font-family: inherit;
+  font-weight: 600;
+  margin-left: 2px;
+  transition: opacity .15s;
+}
+.comment-toggle-btn:hover { opacity: .65; }
+
+.comment-section {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1.5px dashed var(--border);
+}
+
+.comment-item {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.comment-meta {
+  white-space: nowrap;
+  color: var(--primary-dk);
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.comment-text {
+  color: var(--text);
+  flex: 1;
+  word-break: break-all;
+}
+
+.comment-empty {
+  font-size: 12px;
+  color: var(--text-lt);
+  padding: 4px 0 10px;
+  font-style: italic;
+  border-bottom: 1.5px dashed var(--border);
+  margin-bottom: 10px;
+}
+
+.my-comment-area {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.my-comment-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-dk);
+}
+.my-comment-ta {
+  width: 100%;
+  padding: 7px 10px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--card-warm);
+  color: var(--text);
+  outline: none;
+  resize: vertical;
+  min-height: 54px;
+  transition: border-color .2s;
+}
+.my-comment-ta:focus { border-color: var(--primary); background: #fff; }
+.comment-no-rating {
+  font-size: 12px;
+  color: var(--text-lt);
+  font-style: italic;
+  padding: 2px 0;
+}
 
 /* ══ 开启/关闭 按钮 ════════════════════════════════ */
 .toggle-btn {

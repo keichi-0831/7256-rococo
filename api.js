@@ -144,9 +144,9 @@ const API = {
     return data || [];
   },
 
-  async upsertSanctuaryRating(userId, sanctuaryId, rating) {
+  async upsertSanctuaryRating(userId, sanctuaryId, rating, comment = '') {
     const { error } = await db.from('sanctuary_ratings').upsert(
-      { user_id: userId, sanctuary_id: sanctuaryId, rating },
+      { user_id: userId, sanctuary_id: sanctuaryId, rating, comment },
       { onConflict: 'user_id,sanctuary_id' }
     );
     if (error) throw new Error(error.message);
