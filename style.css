@@ -1,0 +1,963 @@
+/* ═══════════════════════════════════════════════════
+   企鹅物流果实屯放仓库 · 样式表
+   主色调：#f6f2e1（暖奶油色）
+   ═══════════════════════════════════════════════════ */
+:root {
+  --bg:            #f6f2e1;   /* 页面背景：暖奶油 */
+  --card:          #ffffff;
+  --card-warm:     #fdf9f0;   /* 浅暖白 */
+  --primary:       #c47a55;   /* 主色：赤陶橙 */
+  --primary-dk:    #9e5c38;
+  --primary-lt:    #f5dfc8;   /* 淡桃 */
+  --accent:        #7fb5a0;   /* 辅助：鼠尾草绿 */
+  --accent-dk:     #5a9683;
+  --success:       #82b96e;
+  --danger:        #e07070;
+  --warn:          #e8b84b;
+  --text:          #5a3e2b;   /* 主文字：暖棕 */
+  --text-lt:       #9a8a78;
+  --border:        #e8dcc8;
+  --shadow:        rgba(160, 92, 56, 0.13);
+  --r:             16px;      /* 圆角 */
+  --r-sm:          10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+
+/* ══ 配置引导 ═══════════════════════════════════════ */
+.setup-guide {
+  background: #fff8e8;
+  border: 2px dashed var(--warn);
+  border-radius: var(--r);
+  padding: 18px 22px;
+  max-width: 720px;
+  margin-bottom: 4px;
+}
+.setup-title { font-weight: 700; color: #8b6914; margin-bottom: 10px; font-size: 15px; }
+.setup-steps {
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 2;
+}
+.setup-steps code {
+  background: rgba(0,0,0,0.07);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+/* ══ 首次使用横幅 ════════════════════════════════════ */
+.first-run-banner {
+  background: linear-gradient(90deg, #f0c070, #e8b050);
+  color: #5a3a00;
+  border-radius: var(--r);
+  padding: 12px 20px;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+  max-width: 720px;
+  box-shadow: 0 3px 10px rgba(232,180,80,0.4);
+}
+
+
+/* ══ 登录/注册 页 ════════════════════════════════════ */
+#entry-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+}
+.entry-wrap {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+/* Logo */
+.entry-logo { text-align: center; }
+.logo-emoji {
+  font-size: 68px;
+  display: block;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 4px 10px rgba(196,122,85,0.35));
+  animation: wobble 3s ease-in-out infinite;
+}
+@keyframes wobble {
+  0%,100% { transform: rotate(-4deg); }
+  50%      { transform: rotate(4deg); }
+}
+.entry-logo h1 {
+  font-size: 22px;
+  color: var(--primary-dk);
+  letter-spacing: 1.5px;
+  margin-bottom: 4px;
+}
+.entry-logo p { font-size: 13px; color: var(--text-lt); }
+
+/* 两张卡片并排 */
+.entry-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  width: 100%;
+}
+@media (max-width: 580px) {
+  .entry-cards { grid-template-columns: 1fr; }
+}
+
+.auth-card { border-radius: var(--r); padding: 26px 22px; }
+.auth-card h2 { font-size: 17px; margin-bottom: 20px; text-align: center; }
+
+/* 注册卡 — 白底 */
+.register-card {
+  background: var(--card);
+  border: 2px solid var(--border);
+  box-shadow: 0 6px 24px var(--shadow);
+}
+.register-card h2 { color: var(--text); }
+
+/* 登录卡 — 彩色底 */
+.login-card {
+  background: linear-gradient(140deg, var(--primary) 0%, var(--primary-dk) 100%);
+  box-shadow: 0 6px 28px rgba(158,92,56,0.38);
+}
+.login-card h2 { color: #fff; }
+
+/* 表单字段 */
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 5px;
+  color: var(--text-lt);
+}
+.login-card .field label { color: rgba(255,255,255,0.8); }
+.hint { font-weight: 400; opacity: 0.7; font-size: 11px; }
+
+.field input {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--card-warm);
+  color: var(--text);
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-lt);
+  background: #fff;
+}
+.login-card .field input {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.28);
+  color: #fff;
+}
+.login-card .field input::placeholder { color: rgba(255,255,255,0.55); }
+.login-card .field input:focus {
+  background: rgba(255,255,255,0.28);
+  border-color: rgba(255,255,255,0.75);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.18);
+}
+
+/* 注册按钮 */
+.btn-reg {
+  width: 100%;
+  padding: 12px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 3px;
+  transition: all .2s;
+  margin-top: 2px;
+}
+.btn-reg:hover { background: var(--primary-dk); transform: translateY(-2px); box-shadow: 0 4px 14px var(--shadow); }
+
+/* 登录按钮 */
+.btn-login {
+  width: 100%;
+  padding: 12px;
+  background: #fff;
+  color: var(--primary-dk);
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 3px;
+  transition: all .2s;
+  margin-top: 2px;
+}
+.btn-login:hover { background: #fff9f4; transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.15); }
+
+.err-msg { font-size: 12px; color: var(--danger); min-height: 16px; margin-bottom: 8px; }
+.err-light { color: #ffd0c0; }
+.login-hint {
+  background: rgba(255,255,255,0.18);
+  border-radius: var(--r-sm);
+  padding: 10px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.9);
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+
+/* ══ App 页头 ═══════════════════════════════════════ */
+.app-header {
+  background: var(--primary);
+  color: #fff;
+  padding: 12px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 2px 14px rgba(158,92,56,0.35);
+  flex-wrap: wrap;
+}
+.hdr-brand { font-size: 15px; font-weight: 700; white-space: nowrap; }
+.hdr-meta {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.hdr-meta span {
+  background: rgba(255,255,255,0.2);
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+.hdr-user { display: flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; }
+.hdr-user button {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 20px;
+  padding: 4px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: background .2s;
+}
+.hdr-user button:hover { background: rgba(255,255,255,0.38); }
+
+
+/* ══ 赛季切换栏 ═════════════════════════════════════ */
+.season-bar {
+  background: var(--card-warm);
+  border-bottom: 1.5px solid var(--border);
+  padding: 9px 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.season-bar-label { font-size: 13px; color: var(--text-lt); white-space: nowrap; }
+.no-season-tip { font-size: 12px; color: var(--text-lt); }
+#season-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.season-tab {
+  padding: 5px 16px;
+  border-radius: 20px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-lt);
+  background: #fff;
+  font-family: inherit;
+  transition: all .2s;
+}
+.season-tab:hover { border-color: var(--primary-lt); color: var(--primary); }
+.season-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+
+/* ══ 管理员工具栏 ════════════════════════════════════ */
+.admin-bar {
+  background: linear-gradient(90deg, #7a5a00, #b88c14);
+  padding: 9px 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: #fff;
+  font-size: 13px;
+}
+.admin-bar button {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 20px;
+  padding: 5px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: background .2s;
+}
+.admin-bar button:hover { background: rgba(255,255,255,0.38); }
+.admin-bar button.danger { background: rgba(224,112,112,0.65); }
+.admin-bar button.danger:hover { background: rgba(224,112,112,0.9); }
+
+
+/* ══ 卡片主布局 ═════════════════════════════════════ */
+.cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  padding: 18px 22px 36px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+@media (max-width: 860px) { .cards { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--card);
+  border-radius: var(--r);
+  padding: 20px;
+  box-shadow: 0 4px 20px var(--shadow);
+  border: 1.5px solid var(--border);
+}
+.card > h2 {
+  font-size: 16px;
+  color: var(--primary-dk);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px dashed var(--border);
+}
+
+
+/* ══ 卡片标题行（带按钮） ══════════════════════════ */
+.card-h-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px dashed var(--border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.card-h-row h2 {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+  font-size: 16px;
+  color: var(--primary-dk);
+}
+.card-h-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-lt);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.check-label input[type=checkbox] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* ══ 庇护所列表 ═════════════════════════════════════ */
+.sanc-item {
+  background: var(--card-warm);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.sanc-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--primary-lt);
+}
+.sanc-name { font-weight: 700; flex: 1; font-size: 14px; color: var(--primary-dk); }
+.sanc-meta { font-size: 11px; color: var(--primary-dk); opacity: .7; }
+.sanc-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+
+.user-row { display: flex; align-items: flex-start; gap: 10px; }
+.user-row-id {
+  min-width: 64px;
+  max-width: 90px;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 12px;
+  padding-top: 5px;
+  word-break: break-all;
+}
+.row-content { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.slots { display: flex; gap: 8px; flex-wrap: wrap; }
+
+
+/* ══ 精灵标签 ═══════════════════════════════════════ */
+.spirit-tag {
+  position: relative;
+  display: inline-block;
+  padding: 7px 12px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #fff;
+  min-width: 80px;
+  text-align: center;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,.3);
+  box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+.spirit-tag .tag-user {
+  position: absolute;
+  bottom: 4px;
+  right: 7px;
+  font-size: 10px;
+  opacity: .82;
+  font-weight: 400;
+}
+.spirit-tag.mine {
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+}
+.spirit-tag.mine:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0,0,0,.22);
+  filter: brightness(1.08);
+}
+
+.slot-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  border: 2px dashed var(--border);
+  color: var(--text-lt);
+  cursor: pointer;
+  min-width: 70px;
+  min-height: 40px;
+  background: #fff;
+  transition: all .15s;
+}
+.slot-empty:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-lt); }
+
+
+/* ══ 庇护所评价背景色 ════════════════════════════════ */
+.sanc-rated-good { background: #f2fbf2; border-color: #a8d8a8; }
+.sanc-rated-bad  { background: #fdf5f5; border-color: #e8b8b8; }
+.sanc-rated-ok   { background: #fdfbf0; border-color: #e0d080; }
+.sanc-rated-good .sanc-header { background: #c4e8c4; }
+.sanc-rated-bad  .sanc-header { background: #f0c4c4; }
+.sanc-rated-ok   .sanc-header { background: #e8e090; }
+
+/* ══ 评价栏 ════════════════════════════════════════ */
+.rating-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-top: 10px;
+  border-top: 2px dashed var(--border);
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.rating-btn {
+  font-size: 12px;
+  border: 1.5px solid;
+  border-radius: 20px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  background: #fff;
+  transition: all .15s;
+}
+.rating-bad  { color: #c05050; border-color: #e0b0b0; }
+.rating-ok   { color: #aa8800; border-color: #e0cc60; }
+.rating-good { color: #3a9a3a; border-color: #90d090; }
+.rating-bad:hover  { background: #ffeaea; }
+.rating-ok:hover   { background: #fffbda; }
+.rating-good:hover { background: #eafaea; }
+.rating-bad.active  { background: #e07070; color: #fff; border-color: #e07070; }
+.rating-ok.active   { background: #d4a820; color: #fff; border-color: #d4a820; }
+.rating-good.active { background: #5aae5a; color: #fff; border-color: #5aae5a; }
+.rating-label { font-size: 12px; font-weight: 700; margin-left: 4px; }
+
+/* ══ 开启/关闭 按钮 ════════════════════════════════ */
+.toggle-btn {
+  font-size: 12px;
+  border: 1.5px solid;
+  border-radius: 20px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .2s;
+  align-self: flex-start;
+}
+.btn-open  { color: var(--success); border-color: var(--success); background: #f0fae7; }
+.btn-open:hover  { background: var(--success); color: #fff; }
+.btn-closed { color: var(--text-lt); border-color: var(--border); background: #fff; }
+.btn-closed:hover { background: var(--border); color: var(--text); }
+
+.badge-open   { font-size: 11px; color: var(--success); background: #edfae0; padding: 3px 10px; border-radius: 20px; font-weight: 600; display: inline-block; }
+.badge-closed { font-size: 11px; color: var(--text-lt);  background: #f0ece4;  padding: 3px 10px; border-radius: 20px; display: inline-block; }
+
+
+/* ══ 精灵果实列表（卡片2） ═══════════════════════════ */
+.fruit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 2px dashed var(--border);
+  flex-wrap: wrap;
+}
+.fruit-row:last-child { border-bottom: none; }
+.fruit-name { font-size: 14px; font-weight: 700; min-width: 100px; }
+.fruit-holders { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.holder-tag {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--primary-lt);
+  color: var(--primary-dk);
+  font-weight: 600;
+}
+.holder-mine {
+  background: var(--success);
+  color: #fff;
+  font-weight: 700;
+}
+
+.my-fruit-btn {
+  font-size: 12px;
+  border: 1.5px solid;
+  border-radius: 20px;
+  padding: 4px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all .2s;
+}
+.fruit-yes { color: #fff; background: var(--success); border-color: var(--success); }
+.fruit-no  { color: var(--text-lt); background: #fff; border-color: var(--border); }
+.fruit-no:hover { border-color: var(--success); color: var(--success); }
+
+
+/* ══ 弹窗 ═══════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(90,62,43,.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+}
+.modal-box {
+  background: var(--card);
+  border-radius: var(--r);
+  padding: 28px;
+  max-width: 560px;
+  width: 93%;
+  max-height: 84vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 16px 52px rgba(90,62,43,.28);
+  border: 1.5px solid var(--border);
+}
+#modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: var(--card-warm);
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-lt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s;
+}
+#modal-close:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+.modal-title { font-size: 17px; font-weight: 700; color: var(--primary-dk); margin-bottom: 18px; }
+.modal-sub   { font-size: 13px; font-weight: 700; color: var(--primary); margin: 16px 0 10px; }
+
+
+/* ══ 弹窗内表单 ════════════════════════════════════ */
+.form-row { margin-bottom: 13px; }
+.form-row label { display: block; font-size: 12px; font-weight: 700; color: var(--text-lt); margin-bottom: 4px; }
+.form-row input,
+.form-row select,
+.form-row textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--card-warm);
+  color: var(--text);
+  outline: none;
+  transition: border-color .2s;
+}
+.form-row input:focus,
+.form-row select:focus,
+.form-row textarea:focus { border-color: var(--primary); background: #fff; }
+.form-row textarea { min-height: 110px; resize: vertical; font-size: 12px; }
+
+
+/* ══ 通用按钮 ═══════════════════════════════════════ */
+.btn {
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 700;
+  transition: all .2s;
+  display: inline-block;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dk); transform: translateY(-1px); }
+.btn-secondary { background: var(--border); color: var(--text); }
+.btn-secondary:hover { background: #d8ceba; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { filter: brightness(.9); }
+.btn-sm { padding: 4px 12px; font-size: 12px; }
+
+
+/* ══ 列表项（弹窗内） ═══════════════════════════════ */
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  margin-bottom: 7px;
+  background: var(--card-warm);
+  font-size: 13px;
+}
+.list-item-main { flex: 1; line-height: 1.6; }
+.list-item-meta { font-size: 11px; color: var(--text-lt); }
+
+
+/* ══ 工具类 ════════════════════════════════════════ */
+.hidden      { display: none !important; }
+.empty-msg   { color: var(--text-lt); font-size: 13px; text-align: center; padding: 28px 0; }
+.flex-row    { display: flex; gap: 10px; flex-wrap: wrap; }
+.mt-8        { margin-top: 8px; }
+hr           { border: none; border-top: 2px dashed var(--border); margin: 16px 0; }
+
+
+/* ══ 所处地分组卡片 ══════════════════════════════════════════ */
+.location-group {
+  margin-bottom: 16px;
+}
+.location-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, var(--primary-lt), #f5f0ea);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: background .15s;
+}
+.location-group-header:hover {
+  background: linear-gradient(90deg, #f0d0b0, #ede8e0);
+}
+.location-name   { font-weight: 700; color: var(--primary-dk); flex: 1; font-size: 14px; }
+.location-count  { font-size: 11px; color: var(--text-lt); }
+.location-toggle { font-size: 11px; color: var(--primary); font-weight: 600; white-space: nowrap; }
+.location-group-body { padding-top: 8px; }
+
+
+/* ══ 系别筛选器（精灵选择弹窗） ═════════════════════════════ */
+.element-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px dashed var(--border);
+}
+.elem-btn {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  color: var(--text-lt);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all .15s;
+}
+.elem-btn:hover  { border-color: var(--primary); color: var(--primary); }
+.elem-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* 精灵选择区域限高，可滚动 */
+.spirit-picks { max-height: 280px; overflow-y: auto; }
+
+
+/* ══ 精灵系别徽章（精灵果实列表） ══════════════════════════ */
+.elem-badge {
+  display: inline-block;
+  font-size: 10px;
+  background: var(--primary-lt);
+  color: var(--primary-dk);
+  border-radius: 10px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+
+/* ══ 动态精灵行编辑器（赛季管理弹窗） ══════════════════════ */
+.spirit-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.spirit-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.spirit-row .spirit-name-inp {
+  flex: 1;
+  padding: 6px 10px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--card-warm);
+  color: var(--text);
+  outline: none;
+  min-width: 0;
+}
+.spirit-row .spirit-name-inp:focus { border-color: var(--primary); background: #fff; }
+.spirit-row .spirit-elem-sel {
+  padding: 6px 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--card-warm);
+  color: var(--text);
+  outline: none;
+}
+.spirit-row .spirit-elem-sel:focus { border-color: var(--primary); background: #fff; }
+
+
+/* ══ 批量操作栏（庇护所管理弹窗） ══════════════════════════ */
+.bulk-bar {
+  background: var(--primary-lt);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-dk);
+}
+.bulk-bar select {
+  padding: 4px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--text);
+  outline: none;
+}
+.bulk-select-header {
+  padding: 4px 0 8px;
+  font-size: 12px;
+  color: var(--text-lt);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bulk-select-header label { cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.list-item input[type=checkbox] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+
+/* ══ 精灵勾选清单（赛季编辑用） ══════════════════════════════ */
+.spirit-checklist-items {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 4px 6px;
+  background: var(--card-warm);
+}
+.spirit-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: background .1s;
+}
+.spirit-check-item:hover { background: rgba(196,122,85,0.08); }
+.spirit-check-item input[type=checkbox] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.sc-name  { flex: 1; }
+.sc-stats {
+  font-size: 12px;
+  color: var(--text-lt);
+  margin-bottom: 6px;
+}
+.sc-filter { margin-bottom: 8px; }
+
+/* 精灵选择弹窗的精灵列表限高 */
+.spirit-picks { max-height: 280px; overflow-y: auto; }
+
+
+/* ══ 新增精灵表单行 ════════════════════════════════════════════ */
+.add-spirit-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.add-spirit-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--card-warm);
+  color: var(--text);
+  outline: none;
+}
+.add-spirit-form input:focus { border-color: var(--primary); background: #fff; }
+.add-spirit-form select {
+  padding: 8px 10px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--card-warm);
+  color: var(--text);
+  outline: none;
+}
+.add-spirit-form select:focus { border-color: var(--primary); background: #fff; }
+
+
+/* ══ JSON 折叠导入区（details/summary） ════════════════════════ */
+.import-section {
+  margin-top: 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 14px;
+}
+.import-section > summary {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-lt);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+.import-section > summary::-webkit-details-marker { display: none; }
+.import-section[open] > summary {
+  color: var(--primary);
+  margin-bottom: 10px;
+}
+.import-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.import-content textarea {
+  width: 100%;
+  font-family: monospace;
+  font-size: 12px;
+  min-height: 72px;
+  padding: 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--card-warm);
+  color: var(--text);
+  outline: none;
+  resize: vertical;
+}
+.import-content textarea:focus { border-color: var(--primary); background: #fff; }
+.import-format-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-lt);
+  font-family: monospace;
+  background: rgba(0,0,0,0.04);
+  padding: 4px 8px;
+  border-radius: 4px;
+  word-break: break-all;
+}
