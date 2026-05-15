@@ -975,10 +975,11 @@ hr           { border: none; border-top: 2px dashed var(--border); margin: 16px 
 }
 
 /* 筛选栏内的 element-filter 去掉自带的下边距和分割线 */
-.fruit-filter-bar .element-filter {
+.fruit-filter-bar .element-filter,
+.spirits-mgr-filter {
   border-bottom: none;
   padding-bottom: 0;
-  margin-bottom: 0;
+  margin-bottom: 8px;
 }
 
 .filter-mode-toggle {

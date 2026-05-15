@@ -22,6 +22,9 @@ const S = {
   fruitFilter:        { elements: new Set(), mode: 'union' },
 };
 
+// 管理精灵弹窗当前系别筛选（跨 _renderSpiritsList 重绘保持状态）
+let _spiritsListFilter = '';
+
 // ══ 工具函数 ══════════════════════════════════════════════════
 function el(id)  { return document.getElementById(id); }
 function qs(sel) { return document.querySelector(sel); }
@@ -145,6 +148,16 @@ async function loadSeasonData() {
     API.getSanctuaryFruits(S.currentSeasonId),
     API.getUserFruits(S.currentSeasonId)
   ]);
+}
+
+// ══ 防抖式后台同步（操作后 30s 重新拉取全量数据） ═══════════════
+let _refreshTimer = null;
+function scheduleRefresh() {
+  clearTimeout(_refreshTimer);
+  _refreshTimer = setTimeout(async () => {
+    await loadAll();
+    renderAll();
+  }, 30000);
 }
 
 // ══ 渲染入口 ══════════════════════════════════════════════════
@@ -296,10 +309,14 @@ function buildMyRow(sanc, isOpen, spirits) {
   const toggleBtn = document.createElement('button');
   toggleBtn.className = `toggle-btn ${isOpen ? 'btn-open' : 'btn-closed'}`;
   toggleBtn.textContent = isOpen ? '✅ 已开启' : '○ 未开启（点此开启）';
-  toggleBtn.onclick = async () => {
-    await API.upsertSanctuaryStatus(S.user.id, sanc.id, !isOpen);
-    S.sancStatuses = await API.getUserSanctuaryStatuses();
+  toggleBtn.onclick = () => {
+    const newOpen = !isOpen;
+    const rec = S.sancStatuses.find(s => s.sanctuary_id === sanc.id && s.user_id === S.user.id);
+    if (rec) rec.is_open = newOpen;
+    else S.sancStatuses.push({ user_id: S.user.id, sanctuary_id: sanc.id, is_open: newOpen });
     renderCard1();
+    API.upsertSanctuaryStatus(S.user.id, sanc.id, newOpen).catch(e => alert('同步失败：' + e.message));
+    scheduleRefresh();
   };
   content.appendChild(toggleBtn);
 
@@ -401,14 +418,18 @@ function buildRatingBar(sanc, ratings, redCnt, yelCnt, grnCnt) {
     btn.className = `rating-btn ${cfg.cls}${isActive ? ' active' : ''}`;
     btn.innerHTML = `${cfg.emoji} ${cfg.label}${cfg.count ? ` <b>${cfg.count}</b>` : ''}`;
     btn.title = isActive ? '再次点击可取消评价' : '';
-    btn.onclick = async () => {
+    btn.onclick = () => {
       if (isActive) {
-        await API.deleteSanctuaryRating(S.user.id, sanc.id);
+        S.sancRatings = S.sancRatings.filter(r => !(r.user_id === S.user.id && r.sanctuary_id === sanc.id));
+        API.deleteSanctuaryRating(S.user.id, sanc.id).catch(e => alert('同步失败：' + e.message));
       } else {
-        await API.upsertSanctuaryRating(S.user.id, sanc.id, cfg.value);
+        const rec = S.sancRatings.find(r => r.user_id === S.user.id && r.sanctuary_id === sanc.id);
+        if (rec) rec.rating = cfg.value;
+        else S.sancRatings.push({ user_id: S.user.id, sanctuary_id: sanc.id, rating: cfg.value });
+        API.upsertSanctuaryRating(S.user.id, sanc.id, cfg.value).catch(e => alert('同步失败：' + e.message));
       }
-      S.sancRatings = await API.getSanctuaryRatings();
       renderCard1();
+      scheduleRefresh();
     };
     bar.appendChild(btn);
   });
@@ -549,10 +570,14 @@ function renderCard2() {
       const btn = document.createElement('button');
       btn.className = `my-fruit-btn ${obtained ? 'fruit-yes' : 'fruit-no'}`;
       btn.textContent = obtained ? '✓ 已获取' : '+ 标记获取';
-      btn.onclick = async () => {
-        await API.upsertUserFruit(S.user.id, S.currentSeasonId, name, !obtained);
-        S.userFruits = await API.getUserFruits(S.currentSeasonId);
+      btn.onclick = () => {
+        const newObtained = !obtained;
+        const rec = S.userFruits.find(f => f.spirit_name === name && f.user_id === S.user.id && f.season_id === S.currentSeasonId);
+        if (rec) rec.obtained = newObtained;
+        else S.userFruits.push({ user_id: S.user.id, season_id: S.currentSeasonId, spirit_name: name, obtained: newObtained });
         renderCard2();
+        API.upsertUserFruit(S.user.id, S.currentSeasonId, name, newObtained).catch(e => alert('同步失败：' + e.message));
+        scheduleRefresh();
       };
       row.appendChild(btn);
     }
@@ -612,22 +637,34 @@ function openSpiritPicker(sanc, slot, spirits, current) {
     });
 
     document.querySelectorAll('.spirit-pick-btn').forEach(btn => {
-      btn.onclick = async () => {
-        await API.upsertSanctuaryFruit(S.user.id, sanc.id, S.currentSeasonId, btn.dataset.spirit, slot);
-        await API.upsertSanctuaryStatus(S.user.id, sanc.id, true);
-        await API.upsertUserFruit(S.user.id, S.currentSeasonId, btn.dataset.spirit, true);
-        S.sancStatuses = await API.getUserSanctuaryStatuses();
-        await loadSeasonData();
+      btn.onclick = () => {
+        const spiritName = btn.dataset.spirit;
+        // 乐观更新本地状态
+        S.sancFruits = S.sancFruits.filter(f => !(f.sanctuary_id === sanc.id && f.user_id === S.user.id && f.season_id === S.currentSeasonId && f.slot === slot));
+        S.sancFruits.push({ user_id: S.user.id, sanctuary_id: sanc.id, season_id: S.currentSeasonId, spirit_name: spiritName, slot });
+        const sRec = S.sancStatuses.find(s => s.sanctuary_id === sanc.id && s.user_id === S.user.id);
+        if (sRec) sRec.is_open = true;
+        else S.sancStatuses.push({ user_id: S.user.id, sanctuary_id: sanc.id, is_open: true });
+        const fRec = S.userFruits.find(f => f.spirit_name === spiritName && f.user_id === S.user.id && f.season_id === S.currentSeasonId);
+        if (fRec) fRec.obtained = true;
+        else S.userFruits.push({ user_id: S.user.id, season_id: S.currentSeasonId, spirit_name: spiritName, obtained: true });
         closeModal(); renderAll();
+        Promise.all([
+          API.upsertSanctuaryFruit(S.user.id, sanc.id, S.currentSeasonId, spiritName, slot),
+          API.upsertSanctuaryStatus(S.user.id, sanc.id, true),
+          API.upsertUserFruit(S.user.id, S.currentSeasonId, spiritName, true),
+        ]).catch(e => alert('同步失败：' + e.message));
+        scheduleRefresh();
       };
     });
 
     const clearBtn = el('btn-clear-slot');
     if (clearBtn) {
-      clearBtn.onclick = async () => {
-        await API.deleteSanctuaryFruit(S.user.id, sanc.id, S.currentSeasonId, slot);
-        await loadSeasonData();
+      clearBtn.onclick = () => {
+        S.sancFruits = S.sancFruits.filter(f => !(f.sanctuary_id === sanc.id && f.user_id === S.user.id && f.season_id === S.currentSeasonId && f.slot === slot));
         closeModal(); renderAll();
+        API.deleteSanctuaryFruit(S.user.id, sanc.id, S.currentSeasonId, slot).catch(e => alert('同步失败：' + e.message));
+        scheduleRefresh();
       };
     }
   }
@@ -1054,6 +1091,7 @@ function showManageSpirits() {
       </div>
     </details>
   `);
+  _spiritsListFilter = '';
   _renderSpiritsList();
 
   el('nspr-ok').onclick = async () => {
@@ -1108,11 +1146,24 @@ function _renderSpiritsList() {
     return;
   }
 
+  const usedElems = ELEMENTS.filter(e => S.spirits.some(sp => (sp.element || '').split(',').includes(e)));
+  const visible   = _spiritsListFilter
+    ? S.spirits.filter(sp => (sp.element || '').split(',').includes(_spiritsListFilter))
+    : S.spirits;
+
   a.innerHTML = `
+    <div class="element-filter spirits-mgr-filter">
+      <button type="button" class="elem-btn${!_spiritsListFilter ? ' active' : ''}" data-elem="">全部 <span style="opacity:.6;font-size:10px">${S.spirits.length}</span></button>
+      ${usedElems.map(e => {
+        const cnt = S.spirits.filter(sp => (sp.element||'').split(',').includes(e)).length;
+        return `<button type="button" class="elem-btn${_spiritsListFilter === e ? ' active' : ''}" data-elem="${e}">${e} <span style="opacity:.6;font-size:10px">${cnt}</span></button>`;
+      }).join('')}
+    </div>
     <div class="bulk-select-header">
       <label><input type="checkbox" id="spr-check-all"> 全选 / 取消全选</label>
+      ${_spiritsListFilter ? `<span style="font-size:11px;color:var(--text-lt)">（当前筛选：${_spiritsListFilter}系，共 ${visible.length} 个）</span>` : ''}
     </div>
-    ${S.spirits.map(s => `
+    ${visible.map(s => `
       <div class="list-item">
         <input type="checkbox" class="spr-check" data-id="${s.id}">
         <div class="list-item-main">
@@ -1122,6 +1173,10 @@ function _renderSpiritsList() {
         <button class="btn btn-danger btn-sm" onclick="adminDelSpirit('${s.id}','${s.name}')">删除</button>
       </div>`).join('')}
   `;
+
+  a.querySelectorAll('.spirits-mgr-filter .elem-btn').forEach(btn => {
+    btn.onclick = () => { _spiritsListFilter = btn.dataset.elem; _renderSpiritsList(); };
+  });
 
   const allCheck = el('spr-check-all');
   if (allCheck) {
@@ -1272,11 +1327,17 @@ function wireEvents() {
     renderCard1();
   };
 
-  el('btn-open-all').onclick = async () => {
+  el('btn-open-all').onclick = () => {
     if (!S.sanctuaries.length) return;
-    await Promise.all(S.sanctuaries.map(s => API.upsertSanctuaryStatus(S.user.id, s.id, true)));
-    S.sancStatuses = await API.getUserSanctuaryStatuses();
+    S.sanctuaries.forEach(sanc => {
+      const rec = S.sancStatuses.find(s => s.sanctuary_id === sanc.id && s.user_id === S.user.id);
+      if (rec) rec.is_open = true;
+      else S.sancStatuses.push({ user_id: S.user.id, sanctuary_id: sanc.id, is_open: true });
+    });
     renderCard1();
+    Promise.all(S.sanctuaries.map(s => API.upsertSanctuaryStatus(S.user.id, s.id, true)))
+      .catch(e => alert('同步失败：' + e.message));
+    scheduleRefresh();
   };
 
   el('btn-logout').onclick = () => { Auth.logout(); location.reload(); };
