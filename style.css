@@ -326,16 +326,54 @@ body {
 .admin-bar button.danger:hover { background: rgba(224,112,112,0.9); }
 
 
+/* ══ 快速跳转导航条 ══════════════════════════════════ */
+.section-nav {
+  background: var(--bg);
+  border-bottom: 1.5px solid var(--border);
+  padding: 9px 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(160,92,56,0.08);
+}
+.section-nav-label {
+  font-size: 13px;
+  color: var(--text-lt);
+  white-space: nowrap;
+}
+.section-nav-btn {
+  padding: 5px 18px;
+  border-radius: 20px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+}
+.section-nav-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-lt);
+}
+
+
 /* ══ 卡片主布局 ═════════════════════════════════════ */
 .cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 18px;
   padding: 18px 22px 36px;
-  max-width: 1400px;
+  max-width: 1000px;
   margin: 0 auto;
 }
-@media (max-width: 860px) { .cards { grid-template-columns: 1fr; } }
+.cards section.card { scroll-margin-top: 52px; }
 
 .card {
   background: var(--card);
@@ -1283,6 +1321,72 @@ hr           { border: none; border-top: 2px dashed var(--border); margin: 16px 
   color: rgba(255,255,255,0.5);
   pointer-events: none;
 }
+
+
+/* ══ 蛋组图例 ═══════════════════════════════════════════════════ */
+.egg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 2px dashed var(--border);
+}
+.egg-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.egg-legend-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+
+/* ══ 蛋组聚焦信息栏 ══════════════════════════════════════════════ */
+.egg-focus-panel {
+  background: var(--primary-lt);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 2;
+  color: var(--text);
+}
+.egg-group-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  border: 2px solid;
+  border-radius: 20px;
+  padding: 1px 9px;
+  margin: 0 3px;
+}
+
+
+/* ══ 蛋组关系网 SVG 容器 ════════════════════════════════════════ */
+.egg-graph-wrap {
+  overflow-x: auto;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  background: #fafaf7;
+  padding: 6px 4px;
+}
+.egg-svg {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+  height: auto;
+}
+.eg-node { transition: opacity .18s; }
+.eg-line  { transition: opacity .18s, stroke-width .18s; }
 
 
 /* ══ 移动端适配 ══════════════════════════════════════════════════ */

@@ -111,12 +111,20 @@
     <button data-action="manage-seasons">📅 管理赛季</button>
     <button data-action="manage-sanctuaries">🏕️ 管理庇护所</button>
     <button data-action="manage-spirits">🐾 管理精灵</button>
+    <button data-action="manage-egg-groups">🥚 管理蛋组</button>
     <button data-action="clear-sanc" class="danger">🧹 清空庇护所放置</button>
     <button data-action="clear-data" class="danger">🗑️ 批量清空全部数据</button>
   </div>
 
+  <div class="section-nav">
+    <span class="section-nav-label">快速跳转：</span>
+    <button class="section-nav-btn" onclick="document.getElementById('section-sanctuary').scrollIntoView({behavior:'smooth'})">🏕️ 眠枭庇护所</button>
+    <button class="section-nav-btn" onclick="document.getElementById('section-fruits').scrollIntoView({behavior:'smooth'})">🍎 精灵果实</button>
+    <button class="section-nav-btn" onclick="document.getElementById('section-egg-groups').scrollIntoView({behavior:'smooth'})">🥚 异色蛋组</button>
+  </div>
+
   <main class="cards">
-    <section class="card">
+    <section class="card" id="section-sanctuary">
       <div class="card-h-row">
         <h2>🏕️ 眠枭庇护所</h2>
         <div class="card-h-tools">
@@ -133,9 +141,13 @@
       </div>
       <div id="sanc-list"></div>
     </section>
-    <section class="card">
+    <section class="card" id="section-fruits">
       <h2>🍎 精灵果实</h2>
       <div id="fruit-list"></div>
+    </section>
+    <section class="card" id="section-egg-groups">
+      <h2>🥚 异色蛋组</h2>
+      <div id="egg-group-list"></div>
     </section>
   </main>
 

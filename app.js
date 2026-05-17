@@ -11,6 +11,7 @@ const S = {
   seasons:            [],
   sanctuaries:        [],
   spirits:            [],   // 全局精灵库
+  eggGroups:          [],   // 蛋组列表
   users:              [],
   currentSeasonId:    null,
   sancStatuses:       [],
@@ -171,6 +172,8 @@ async function loadAll() {
     API.getAllUsers(), API.getUserSanctuaryStatuses(),
     API.getSanctuaryRatings()
   ]);
+  // 蛋组表是新增的，若未运行新建表脚本则降级为空
+  try { S.eggGroups = await API.getEggGroups(); } catch { S.eggGroups = []; }
   if (!S.currentSeasonId && S.seasons.length) {
     const today = new Date().toISOString().slice(0, 10);
     const active = S.seasons.find(s => s.start_date <= today && s.end_date >= today);
@@ -203,6 +206,7 @@ function renderAll() {
   renderSeasonTabs();
   renderCard1();
   renderCard2();
+  renderCard3();
 }
 
 // ══ 页头 ══════════════════════════════════════════════════════
@@ -732,6 +736,251 @@ function renderCard2() {
 
     rowsEl.appendChild(row);
   });
+}
+
+// ══ 卡片3：异色蛋组关系网 ════════════════════════════════════
+const EGG_GROUP_COLORS = [
+  '#d4633a','#6b5dc8','#3c9e58','#2e8c72',
+  '#cc5fa0','#3d87c8','#8060b8','#b8900a',
+  '#c84444','#4ab0b0',
+];
+
+function renderCard3() {
+  const c = el('egg-group-list');
+  if (!c) return;
+  if (!S.eggGroups.length) {
+    c.innerHTML = '<p class="empty-msg">🥚 暂无蛋组数据，管理员请点上方「管理蛋组」添加，并在 Supabase 运行新版 schema.sql</p>';
+    return;
+  }
+
+  // 收集所有精灵名，按主蛋组排序（主蛋组=首个包含它的组）
+  const allNames = [...new Set(S.eggGroups.flatMap(g => g.spirits || []))];
+  allNames.sort((a, b) => {
+    const ai = S.eggGroups.findIndex(g => (g.spirits||[]).includes(a));
+    const bi = S.eggGroups.findIndex(g => (g.spirits||[]).includes(b));
+    return ai !== bi ? ai - bi : a.localeCompare(b, 'zh');
+  });
+
+  if (!allNames.length) {
+    c.innerHTML = '<p class="empty-msg">所有蛋组都还没有精灵~</p>';
+    return;
+  }
+
+  // 蛋组颜色映射
+  const gColor = {};
+  S.eggGroups.forEach((g, i) => { gColor[g.name] = EGG_GROUP_COLORS[i % EGG_GROUP_COLORS.length]; });
+
+  // 精灵 → 所属蛋组列表
+  const spiritGroups = {};
+  allNames.forEach(n => { spiritGroups[n] = S.eggGroups.filter(g => (g.spirits||[]).includes(n)); });
+
+  // SVG 布局参数
+  const COLS     = Math.min(6, allNames.length);
+  const INNER_W  = 90, INNER_H = 28, GAP = 3;
+  const maxB     = Math.max(1, ...allNames.map(n => spiritGroups[n].length));
+  const NODE_W   = INNER_W + 2 * GAP * maxB;
+  const NODE_H   = INNER_H + 2 * GAP * maxB;
+  const H_STEP   = NODE_W + 14;
+  const V_STEP   = NODE_H + 40;
+  const MX = 18, MY = 24;
+  const ROWS     = Math.ceil(allNames.length / COLS);
+  const SVG_W    = COLS * H_STEP + MX * 2 - 14;
+  const SVG_H    = ROWS * V_STEP + MY * 2 + NODE_H / 2;
+
+  // 计算每个精灵节点中心坐标
+  const pos = {};
+  allNames.forEach((n, i) => {
+    pos[n] = {
+      x: MX + (i % COLS) * H_STEP + NODE_W / 2,
+      y: MY + Math.floor(i / COLS) * V_STEP + NODE_H / 2,
+    };
+  });
+
+  // 生成连线（同蛋组两两相连）
+  let linesSVG = '';
+  S.eggGroups.forEach(g => {
+    const color = gColor[g.name];
+    const ms = (g.spirits || []).filter(s => pos[s]);
+    for (let i = 0; i < ms.length - 1; i++) {
+      for (let j = i + 1; j < ms.length; j++) {
+        const a = pos[ms[i]], b = pos[ms[j]];
+        linesSVG += `<line class="eg-line" data-group="${g.name}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${color}" stroke-width="1.8" stroke-opacity="0.22" stroke-linecap="round"/>`;
+      }
+    }
+  });
+
+  // 生成节点
+  let nodesSVG = '';
+  allNames.forEach(n => {
+    const { x, y } = pos[n];
+    const groups  = spiritGroups[n];
+    let rects = '';
+    // 从最外层画到最内层（后画的覆盖前面的中心）
+    for (let k = groups.length - 1; k >= 0; k--) {
+      const pad = (k + 1) * GAP;
+      const bw = INNER_W + 2 * pad, bh = INNER_H + 2 * pad;
+      rects += `<rect x="${(x-bw/2).toFixed(1)}" y="${(y-bh/2).toFixed(1)}" width="${bw}" height="${bh}" rx="${3+pad}" fill="${gColor[groups[k].name]}"/>`;
+    }
+    // 白底
+    rects += `<rect x="${(x-INNER_W/2).toFixed(1)}" y="${(y-INNER_H/2).toFixed(1)}" width="${INNER_W}" height="${INNER_H}" rx="4" fill="white"/>`;
+    // 精灵名 + 可配蛋总数（含自身）
+    const breedCount = new Set(groups.flatMap(g => g.spirits || [])).size;
+    rects += `<text x="${x}" y="${y}" dominant-baseline="middle" text-anchor="middle" font-size="13" font-weight="700" fill="#5a3e2b" font-family="'Microsoft YaHei','PingFang SC',sans-serif" pointer-events="none">${n}<tspan font-size="10" font-weight="400" fill="#9a8a78">(${breedCount})</tspan></text>`;
+    // 透明点击热区
+    const nw = NODE_W/2, nh = NODE_H/2;
+    rects += `<rect class="eg-node-hit" data-spirit="${n}" x="${(x-nw).toFixed(1)}" y="${(y-nh).toFixed(1)}" width="${NODE_W}" height="${NODE_H}" rx="${3+GAP*maxB}" fill="transparent" style="cursor:pointer"/>`;
+    nodesSVG += `<g class="eg-node" data-spirit="${n}">${rects}</g>`;
+  });
+
+  // 图例
+  let legendHTML = '<div class="egg-legend">';
+  S.eggGroups.forEach(g => {
+    legendHTML += `<span class="egg-legend-item"><span class="egg-legend-dot" style="background:${gColor[g.name]}"></span>${g.name}</span>`;
+  });
+  legendHTML += '</div>';
+
+  c.innerHTML = legendHTML
+    + `<div class="egg-focus-panel hidden" id="egg-focus-panel"></div>`
+    + `<div class="egg-graph-wrap"><svg class="egg-svg" viewBox="0 0 ${SVG_W} ${SVG_H}" xmlns="http://www.w3.org/2000/svg"><g id="eg-lines">${linesSVG}</g><g id="eg-nodes">${nodesSVG}</g></svg></div>`;
+
+  // 交互：点击精灵聚焦
+  let focused = null;
+
+  function unfocusAll() {
+    focused = null;
+    c.querySelectorAll('.eg-node').forEach(n => { n.style.opacity = ''; });
+    c.querySelectorAll('.eg-line').forEach(l => { l.style.opacity = ''; l.setAttribute('stroke-width','1.8'); l.setAttribute('stroke-opacity','0.22'); });
+    const fp = el('egg-focus-panel');
+    if (fp) { fp.classList.add('hidden'); fp.innerHTML = ''; }
+  }
+
+  function focusSpirit(name) {
+    if (focused === name) { unfocusAll(); return; }
+    focused = name;
+    const myGroups = spiritGroups[name] || [];
+    const connected = new Set(myGroups.flatMap(g => g.spirits || []));
+    connected.delete(name);
+
+    c.querySelectorAll('.eg-node').forEach(n => {
+      const s = n.dataset.spirit;
+      n.style.opacity = (s === name || connected.has(s)) ? '1' : '0.08';
+    });
+    c.querySelectorAll('.eg-line').forEach(l => {
+      const relevant = myGroups.some(g => g.name === l.dataset.group);
+      if (relevant) { l.setAttribute('stroke-opacity','0.9'); l.setAttribute('stroke-width','2.8'); l.style.opacity = ''; }
+      else          { l.style.opacity = '0.03'; }
+    });
+
+    const fp = el('egg-focus-panel');
+    if (!fp) return;
+    fp.classList.remove('hidden');
+    let html = `<b>${name}</b> 所属蛋组：`;
+    myGroups.forEach(g => {
+      html += `<span class="egg-group-tag" style="border-color:${gColor[g.name]};color:${gColor[g.name]}">${g.name}</span>`;
+    });
+    html += connected.size
+      ? `<br>可配蛋的精灵：<b>${[...connected].join('、')}</b>`
+      : `<br><span style="color:var(--text-lt)">（此蛋组中暂无其他精灵）</span>`;
+    html += `<button class="btn btn-sm btn-secondary" id="eg-unfocus-btn" style="margin-left:10px">取消选中</button>`;
+    fp.innerHTML = html;
+    el('eg-unfocus-btn').onclick = unfocusAll;
+  }
+
+  c.querySelectorAll('.eg-node-hit').forEach(hit => {
+    hit.addEventListener('click', () => focusSpirit(hit.dataset.spirit));
+  });
+}
+
+// ══ 管理员弹窗：蛋组管理 ══════════════════════════════════════
+function showManageEggGroups() {
+  showModal(`
+    <div class="modal-title">🥚 管理蛋组</div>
+    <div id="egggroups-area"></div>
+    <hr>
+    <div class="modal-sub">新增蛋组</div>
+    <div class="form-row"><label>蛋组名称</label><input id="neg-name" type="text" placeholder="例：妖精组"></div>
+    <div class="form-row">
+      <label>包含精灵 <span class="hint">（从精灵库勾选）</span></label>
+      <div id="neg-spirit-checklist"></div>
+    </div>
+    <button class="btn btn-primary" id="neg-ok">创建蛋组</button>
+  `);
+  _renderEggGroupsList();
+  const selectedNames = new Set();
+  buildSpiritChecklist(el('neg-spirit-checklist'), selectedNames);
+  el('neg-ok').onclick = async () => {
+    const name = el('neg-name').value.trim();
+    if (!name) { alert('请填写蛋组名称'); return; }
+    if (!selectedNames.size) { alert('请至少勾选一个精灵'); return; }
+    try {
+      await API.createEggGroup(name, [...selectedNames]);
+      S.eggGroups = await API.getEggGroups();
+      el('neg-name').value = '';
+      selectedNames.clear();
+      buildSpiritChecklist(el('neg-spirit-checklist'), selectedNames);
+      _renderEggGroupsList();
+      renderCard3();
+    } catch (e) { alert('创建失败：' + e.message); }
+  };
+}
+
+function _renderEggGroupsList() {
+  const a = el('egggroups-area');
+  if (!a) return;
+  a.innerHTML = S.eggGroups.length
+    ? S.eggGroups.map(g => `
+        <div class="list-item">
+          <div class="list-item-main">
+            <b>${g.name}</b>
+            <div class="list-item-meta">${(g.spirits||[]).join('、') || '（暂无精灵）'}</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="adminEditEggGroup('${g.id}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="adminDelEggGroup('${g.id}','${g.name}')">删除</button>
+        </div>`).join('')
+    : '<p class="empty-msg">暂无蛋组</p>';
+}
+
+function adminEditEggGroup(id) {
+  const g = S.eggGroups.find(x => x.id === id);
+  if (!g) return;
+  const libraryNames = new Set(S.spirits.map(s => s.name));
+  // 精灵库里没有的成员（如预置数据中还未录入精灵库的）保存时自动保留
+  const extraSpirits = (g.spirits || []).filter(s => !libraryNames.has(s));
+  showModal(`
+    <div class="modal-title">✏️ 编辑蛋组</div>
+    <div class="form-row"><label>蛋组名称</label><input id="eeg-name" type="text" value="${g.name}"></div>
+    <div class="form-row">
+      <label>包含精灵（精灵库中的）</label>
+      <div id="eeg-spirit-checklist"></div>
+    </div>
+    ${extraSpirits.length ? `<p style="font-size:12px;color:var(--text-lt);margin-top:4px">精灵库外的成员（自动保留）：${extraSpirits.join('、')}</p>` : ''}
+    <div class="flex-row">
+      <button class="btn btn-primary" id="eeg-ok">保存修改</button>
+      <button class="btn btn-secondary" id="eeg-back">← 返回列表</button>
+    </div>
+  `);
+  const selectedNames = new Set((g.spirits || []).filter(s => libraryNames.has(s)));
+  buildSpiritChecklist(el('eeg-spirit-checklist'), selectedNames);
+  el('eeg-back').onclick = () => showManageEggGroups();
+  el('eeg-ok').onclick = async () => {
+    const name = el('eeg-name').value.trim();
+    if (!name) { alert('蛋组名称不能为空'); return; }
+    const allSpirits = [...selectedNames, ...extraSpirits];
+    try {
+      await API.updateEggGroup(id, { name, spirits: allSpirits });
+      S.eggGroups = await API.getEggGroups();
+      renderCard3();
+      showManageEggGroups();
+    } catch (e) { alert('保存失败：' + e.message); }
+  };
+}
+
+async function adminDelEggGroup(id, name) {
+  if (!confirm(`确认删除蛋组「${name}」？`)) return;
+  await API.deleteEggGroup(id);
+  S.eggGroups = await API.getEggGroups();
+  _renderEggGroupsList();
+  renderCard3();
 }
 
 // ══ 精灵选择弹窗（带系别筛选，全局精灵库，赛季精灵置顶闪光） ═══
@@ -1616,6 +1865,7 @@ function wireEvents() {
     else if (action === 'manage-seasons')     showManageSeasons();
     else if (action === 'manage-sanctuaries') showManageSanctuaries();
     else if (action === 'manage-spirits')     showManageSpirits();
+    else if (action === 'manage-egg-groups')  showManageEggGroups();
     else if (action === 'clear-sanc')         showClearSancData();
     else if (action === 'clear-data')         showClearData();
   });

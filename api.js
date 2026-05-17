@@ -203,6 +203,27 @@ const API = {
     if (error) throw new Error(error.message);
   },
 
+  // ── 蛋组 ────────────────────────────────────────
+  async getEggGroups() {
+    const { data } = await db.from('egg_groups').select('*').order('created_at', { ascending: true });
+    return data || [];
+  },
+
+  async createEggGroup(name, spirits) {
+    const { error } = await db.from('egg_groups').insert({ name, spirits });
+    if (error) throw new Error(error.message);
+  },
+
+  async updateEggGroup(id, updates) {
+    const { error } = await db.from('egg_groups').update(updates).eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
+  async deleteEggGroup(id) {
+    const { error } = await db.from('egg_groups').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
   // name 冲突时更新 element / star_value_1/2/3（upsert by name）
   async importSpirits(list) {
     for (const s of list) {
