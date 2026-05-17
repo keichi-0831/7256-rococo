@@ -36,7 +36,7 @@ function qs(sel) { return document.querySelector(sel); }
 function spiritColor(name) {
   let h = 0;
   for (const c of name) h = ((h << 5) - h + c.charCodeAt(0)) | 0;
-  return `hsl(${Math.abs(h) % 360}, 60%, 48%)`;
+  return `hsl(${Math.abs(h) % 360}, 40%, 47%)`;
 }
 
 function fmtDate(str) {
@@ -740,10 +740,129 @@ function renderCard2() {
 
 // ══ 卡片3：异色蛋组关系网 ════════════════════════════════════
 const EGG_GROUP_COLORS = [
-  '#d4633a','#6b5dc8','#3c9e58','#2e8c72',
-  '#cc5fa0','#3d87c8','#8060b8','#b8900a',
-  '#c84444','#4ab0b0',
+  '#b87055','#7a72a8','#5a9468','#4a8878',
+  '#b07890','#5888a8','#887898','#9a8248',
+  '#a86060','#5a9090',
 ];
+
+// 力导向布局：连接多的精灵聚中，连接少的放射外围
+function _eggForceLayout(allNames, spiritGroups, eggGroups, W, H) {
+  const N = allNames.length;
+  if (!N) return {};
+
+  const breedCnt = {};
+  allNames.forEach(n => {
+    breedCnt[n] = new Set(spiritGroups[n].flatMap(g => g.spirits || [])).size;
+  });
+  const maxBC = Math.max(...Object.values(breedCnt));
+
+  // 初始同心圆环：内圈半径不为 0，避免多节点挤在同一个点
+  const cx = W / 2, cy = H / 2;
+  const sorted = [...allNames].sort((a, b) => breedCnt[b] - breedCnt[a]);
+  const RINGS = [75, H * 0.28, H * 0.42, H * 0.48];
+  const buckets = RINGS.map(() => []);
+  sorted.forEach(n => {
+    const t = maxBC > 1 ? 1 - (breedCnt[n] - 1) / (maxBC - 1) : 0;
+    buckets[Math.min(RINGS.length - 1, Math.floor(t * RINGS.length * 0.88))].push(n);
+  });
+
+  const pos = {};
+  buckets.forEach((ring, ri) => {
+    const r = RINGS[ri];
+    ring.forEach((n, i) => {
+      // 名字哈希决定角度偏移，布局确定性
+      const h = n.split('').reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) | 0, 0);
+      const angleOffset = (Math.abs(h) % 100) * 0.001;
+      const angle = (i / Math.max(ring.length, 1)) * 2 * Math.PI - Math.PI / 2 + angleOffset;
+      pos[n] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle), vx: 0, vy: 0 };
+    });
+  });
+
+  // 唯一边集
+  const edgeSet = new Set(), edges = [];
+  eggGroups.forEach(g => {
+    const ms = (g.spirits || []).filter(s => pos[s]);
+    for (let i = 0; i < ms.length - 1; i++) {
+      for (let j = i + 1; j < ms.length; j++) {
+        const key = ms[i] < ms[j] ? `${ms[i]}|${ms[j]}` : `${ms[j]}|${ms[i]}`;
+        if (!edgeSet.has(key)) { edgeSet.add(key); edges.push([ms[i], ms[j]]); }
+      }
+    }
+  });
+
+  // 节点半尺寸（AABB 碰撞用）；maxB 最大为 2，NODE_W ≈ 102
+  const HW = 53, HH = 23;         // 节点半宽、半高（含边框），留 2px 间隙
+  const PAD_X = 22, PAD_Y = 14;   // 节点间最小间距
+
+  const REP = 9000, IDEAL = 180, ATT = 0.04, GRV = 0.006, DAMP = 0.75;
+
+  for (let it = 0; it < 400; it++) {
+    const cool = Math.max(0.03, 1 - it / 400);
+
+    // 斥力
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        const a = pos[allNames[i]], b = pos[allNames[j]];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 0.1;
+        const f = REP / (d * d);
+        a.vx -= f * dx / d; a.vy -= f * dy / d;
+        b.vx += f * dx / d; b.vy += f * dy / d;
+      }
+    }
+
+    // 弹簧引力
+    edges.forEach(([na, nb]) => {
+      const a = pos[na], b = pos[nb];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const f = ATT * (d - IDEAL);
+      a.vx += f * dx / d; a.vy += f * dy / d;
+      b.vx -= f * dx / d; b.vy -= f * dy / d;
+    });
+
+    // 向心引力（连接多的更强）
+    allNames.forEach(n => {
+      const p = pos[n], w = 0.3 + 0.7 * breedCnt[n] / maxBC;
+      p.vx += (cx - p.x) * GRV * w;
+      p.vy += (cy - p.y) * GRV * w;
+    });
+
+    // 应用速度 + 边界
+    allNames.forEach(n => {
+      const p = pos[n];
+      p.x += p.vx * cool; p.y += p.vy * cool;
+      p.vx *= DAMP;        p.vy *= DAMP;
+      p.x = Math.max(HW + 14, Math.min(W - HW - 14, p.x));
+      p.y = Math.max(HH + 14, Math.min(H - HH - 14, p.y));
+    });
+
+    // AABB 硬碰撞解算：强制分开重叠节点，同时消除向心分量避免震荡
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        const a = pos[allNames[i]], b = pos[allNames[j]];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const ox = (HW + HW + PAD_X) - Math.abs(dx);
+        const oy = (HH + HH + PAD_Y) - Math.abs(dy);
+        if (ox > 0 && oy > 0) {
+          if (ox <= oy) {
+            const push = ox * 0.52 * (dx >= 0 ? 1 : -1);
+            a.x -= push; b.x += push;
+            // 消除让它们重新靠拢的速度分量
+            if (dx >= 0) { a.vx = Math.min(a.vx, 0); b.vx = Math.max(b.vx, 0); }
+            else         { a.vx = Math.max(a.vx, 0); b.vx = Math.min(b.vx, 0); }
+          } else {
+            const push = oy * 0.52 * (dy >= 0 ? 1 : -1);
+            a.y -= push; b.y += push;
+            if (dy >= 0) { a.vy = Math.min(a.vy, 0); b.vy = Math.max(b.vy, 0); }
+            else         { a.vy = Math.max(a.vy, 0); b.vy = Math.min(b.vy, 0); }
+          }
+        }
+      }
+    }
+  }
+  return pos;
+}
 
 function renderCard3() {
   const c = el('egg-group-list');
@@ -753,80 +872,113 @@ function renderCard3() {
     return;
   }
 
-  // 收集所有精灵名，按主蛋组排序（主蛋组=首个包含它的组）
   const allNames = [...new Set(S.eggGroups.flatMap(g => g.spirits || []))];
-  allNames.sort((a, b) => {
-    const ai = S.eggGroups.findIndex(g => (g.spirits||[]).includes(a));
-    const bi = S.eggGroups.findIndex(g => (g.spirits||[]).includes(b));
-    return ai !== bi ? ai - bi : a.localeCompare(b, 'zh');
-  });
+  if (!allNames.length) { c.innerHTML = '<p class="empty-msg">所有蛋组都还没有精灵~</p>'; return; }
 
-  if (!allNames.length) {
-    c.innerHTML = '<p class="empty-msg">所有蛋组都还没有精灵~</p>';
-    return;
-  }
-
-  // 蛋组颜色映射
   const gColor = {};
   S.eggGroups.forEach((g, i) => { gColor[g.name] = EGG_GROUP_COLORS[i % EGG_GROUP_COLORS.length]; });
 
-  // 精灵 → 所属蛋组列表
   const spiritGroups = {};
   allNames.forEach(n => { spiritGroups[n] = S.eggGroups.filter(g => (g.spirits||[]).includes(n)); });
 
-  // SVG 布局参数
-  const COLS     = Math.min(6, allNames.length);
-  const INNER_W  = 90, INNER_H = 28, GAP = 3;
-  const maxB     = Math.max(1, ...allNames.map(n => spiritGroups[n].length));
-  const NODE_W   = INNER_W + 2 * GAP * maxB;
-  const NODE_H   = INNER_H + 2 * GAP * maxB;
-  const H_STEP   = NODE_W + 14;
-  const V_STEP   = NODE_H + 40;
-  const MX = 18, MY = 24;
-  const ROWS     = Math.ceil(allNames.length / COLS);
-  const SVG_W    = COLS * H_STEP + MX * 2 - 14;
-  const SVG_H    = ROWS * V_STEP + MY * 2 + NODE_H / 2;
+  // 节点尺寸
+  const INNER_W = 90, INNER_H = 28, GAP = 3;
+  const maxB   = Math.max(1, ...allNames.map(n => spiritGroups[n].length));
+  const NODE_W = INNER_W + 2 * GAP * maxB;
+  const NODE_H = INNER_H + 2 * GAP * maxB;
 
-  // 计算每个精灵节点中心坐标
-  const pos = {};
-  allNames.forEach((n, i) => {
-    pos[n] = {
-      x: MX + (i % COLS) * H_STEP + NODE_W / 2,
-      y: MY + Math.floor(i / COLS) * V_STEP + NODE_H / 2,
-    };
-  });
+  // 力导向布局（宽画布，节点自适应分布）
+  const SVG_W = 1000, SVG_H = 500;
+  const pos = _eggForceLayout(allNames, spiritGroups, S.eggGroups, SVG_W, SVG_H);
 
-  // 生成连线（同蛋组两两相连）
+  // 各节点外框半尺寸
+  const nHW = n => INNER_W / 2 + spiritGroups[n].length * GAP + 3;
+  const nHH = n => INNER_H / 2 + spiritGroups[n].length * GAP + 3;
+
+  // 线段-矩形相交检测（用于绕障判断）
+  function blockedBy(x1, y1, x2, y2, n) {
+    const p = pos[n], hw = nHW(n) - 2, hh = nHH(n) - 2;
+    const l = p.x-hw, r = p.x+hw, t = p.y-hh, b = p.y+hh;
+    if (Math.min(x1,x2)>r || Math.max(x1,x2)<l ||
+        Math.min(y1,y2)>b || Math.max(y1,y2)<t) return false;
+    function ss(ax,ay,bx,by,cx,cy,dx,dy) {
+      const d1x=bx-ax,d1y=by-ay,d2x=dx-cx,d2y=dy-cy;
+      const cross=d1x*d2y-d1y*d2x;
+      if(Math.abs(cross)<1e-9)return false;
+      const ex=cx-ax,ey=cy-ay;
+      const tt=(ex*d2y-ey*d2x)/cross, uu=(ex*d1y-ey*d1x)/cross;
+      return tt>=0&&tt<=1&&uu>=0&&uu<=1;
+    }
+    return ss(x1,y1,x2,y2, l,t,r,t)||ss(x1,y1,x2,y2, r,t,r,b)||
+           ss(x1,y1,x2,y2, r,b,l,b)||ss(x1,y1,x2,y2, l,b,l,t);
+  }
+
+  // 四个方向端口（上下左右中点）
+  function getPorts(n) {
+    const p = pos[n], hw = nHW(n), hh = nHH(n);
+    return [
+      { x: p.x,    y: p.y-hh },  // N
+      { x: p.x,    y: p.y+hh },  // S
+      { x: p.x-hw, y: p.y    },  // W
+      { x: p.x+hw, y: p.y    },  // E
+    ];
+  }
+
+  // 为每条边选最优端口对（优先直线通路，次选绕障贝塞尔）
+  function routeLine(na, nb) {
+    const pA = getPorts(na), pB = getPorts(nb);
+    const others = allNames.filter(n => n!==na && n!==nb);
+    let best = null, bestScore = -Infinity;
+    for (const a of pA) {
+      for (const b of pB) {
+        const cnt = others.reduce((s,n) => s+(blockedBy(a.x,a.y,b.x,b.y,n)?1:0), 0);
+        const dx=b.x-a.x, dy=b.y-a.y;
+        const score = -cnt*1e5 - Math.sqrt(dx*dx+dy*dy);
+        if (score > bestScore) { bestScore = score; best = { a, b, cnt }; }
+      }
+    }
+    const { a, b, cnt } = best;
+    if (cnt === 0) {
+      return `M${a.x.toFixed(1)} ${a.y.toFixed(1)} L${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+    }
+    // 贝塞尔绕障：控制点向障碍节点对侧偏移
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    const dx=b.x-a.x, dy=b.y-a.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+    const blk = others.find(n => blockedBy(a.x,a.y,b.x,b.y,n));
+    const bp  = blk ? pos[blk] : { x: mx-dy, y: my+dx };
+    const side = (bp.x-a.x)*dy - (bp.y-a.y)*dx;
+    const s = side > 0 ? -1 : 1;
+    const off = Math.min(len*0.32, 70);
+    const cpx = mx+(-dy/len)*s*off, cpy = my+(dx/len)*s*off;
+    return `M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cpx.toFixed(1)} ${cpy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+  }
+
+  // 连线（端口路由，避免穿过其他节点）
   let linesSVG = '';
   S.eggGroups.forEach(g => {
-    const color = gColor[g.name];
     const ms = (g.spirits || []).filter(s => pos[s]);
     for (let i = 0; i < ms.length - 1; i++) {
       for (let j = i + 1; j < ms.length; j++) {
-        const a = pos[ms[i]], b = pos[ms[j]];
-        linesSVG += `<line class="eg-line" data-group="${g.name}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${color}" stroke-width="1.8" stroke-opacity="0.22" stroke-linecap="round"/>`;
+        const d = routeLine(ms[i], ms[j]);
+        linesSVG += `<path class="eg-line" data-group="${g.name}" d="${d}" stroke="${gColor[g.name]}" stroke-width="1.8" stroke-opacity="0.28" fill="none" stroke-linecap="round"/>`;
       }
     }
   });
 
-  // 生成节点
+  // 节点
   let nodesSVG = '';
   allNames.forEach(n => {
     const { x, y } = pos[n];
-    const groups  = spiritGroups[n];
+    const groups     = spiritGroups[n];
+    const breedCount = new Set(groups.flatMap(g => g.spirits || [])).size;
     let rects = '';
-    // 从最外层画到最内层（后画的覆盖前面的中心）
     for (let k = groups.length - 1; k >= 0; k--) {
       const pad = (k + 1) * GAP;
       const bw = INNER_W + 2 * pad, bh = INNER_H + 2 * pad;
-      rects += `<rect x="${(x-bw/2).toFixed(1)}" y="${(y-bh/2).toFixed(1)}" width="${bw}" height="${bh}" rx="${3+pad}" fill="${gColor[groups[k].name]}"/>`;
+      rects += `<rect class="eg-frame" x="${(x-bw/2).toFixed(1)}" y="${(y-bh/2).toFixed(1)}" width="${bw}" height="${bh}" rx="${3+pad}" fill="${gColor[groups[k].name]}"/>`;
     }
-    // 白底
     rects += `<rect x="${(x-INNER_W/2).toFixed(1)}" y="${(y-INNER_H/2).toFixed(1)}" width="${INNER_W}" height="${INNER_H}" rx="4" fill="white"/>`;
-    // 精灵名 + 可配蛋总数（含自身）
-    const breedCount = new Set(groups.flatMap(g => g.spirits || [])).size;
     rects += `<text x="${x}" y="${y}" dominant-baseline="middle" text-anchor="middle" font-size="13" font-weight="700" fill="#5a3e2b" font-family="'Microsoft YaHei','PingFang SC',sans-serif" pointer-events="none">${n}<tspan font-size="10" font-weight="400" fill="#9a8a78">(${breedCount})</tspan></text>`;
-    // 透明点击热区
     const nw = NODE_W/2, nh = NODE_H/2;
     rects += `<rect class="eg-node-hit" data-spirit="${n}" x="${(x-nw).toFixed(1)}" y="${(y-nh).toFixed(1)}" width="${NODE_W}" height="${NODE_H}" rx="${3+GAP*maxB}" fill="transparent" style="cursor:pointer"/>`;
     nodesSVG += `<g class="eg-node" data-spirit="${n}">${rects}</g>`;
@@ -841,15 +993,45 @@ function renderCard3() {
 
   c.innerHTML = legendHTML
     + `<div class="egg-focus-panel hidden" id="egg-focus-panel"></div>`
-    + `<div class="egg-graph-wrap"><svg class="egg-svg" viewBox="0 0 ${SVG_W} ${SVG_H}" xmlns="http://www.w3.org/2000/svg"><g id="eg-lines">${linesSVG}</g><g id="eg-nodes">${nodesSVG}</g></svg></div>`;
+    + `<div class="egg-graph-wrap"><svg class="egg-svg" viewBox="0 0 ${SVG_W} ${SVG_H}" xmlns="http://www.w3.org/2000/svg"><defs><filter id="eg-glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/><feFlood flood-color="#fff8e6" flood-opacity="0.9" result="cream"/><feComposite in="cream" in2="blur" operator="in" result="glow"/><feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g id="eg-lines">${linesSVG}</g><g id="eg-nodes">${nodesSVG}</g></svg></div>`;
 
-  // 交互：点击精灵聚焦
-  let focused = null;
+  // 聚焦 + 视口缩放交互
+  let focused  = null;
+  let _vbAnim  = null;
+  const FULL_VB = [0, 0, SVG_W, SVG_H];
+  let _curVB    = [...FULL_VB];
+  const svgEl   = c.querySelector('.egg-svg');
+
+  function animateVB(toVB, duration) {
+    if (_vbAnim) { cancelAnimationFrame(_vbAnim); _vbAnim = null; }
+    const from = [..._curVB];
+    const t0   = performance.now();
+    function frame(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      const e = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
+      _curVB = from.map((v, i) => v + (toVB[i] - v) * e);
+      if (svgEl) svgEl.setAttribute('viewBox', _curVB.join(' '));
+      if (t < 1) _vbAnim = requestAnimationFrame(frame);
+      else _vbAnim = null;
+    }
+    _vbAnim = requestAnimationFrame(frame);
+  }
+
+  // 默认彩色框半透明，白底和名字保持不透明
+  c.querySelectorAll('.eg-frame').forEach(f => { f.style.opacity = '0.5'; });
 
   function unfocusAll() {
     focused = null;
-    c.querySelectorAll('.eg-node').forEach(n => { n.style.opacity = ''; });
-    c.querySelectorAll('.eg-line').forEach(l => { l.style.opacity = ''; l.setAttribute('stroke-width','1.8'); l.setAttribute('stroke-opacity','0.22'); });
+    animateVB(FULL_VB, 300);
+    if (svgEl) svgEl.style.cursor = '';
+    c.querySelectorAll('.eg-node').forEach(nd => {
+      nd.style.opacity = ''; nd.removeAttribute('filter'); nd.removeAttribute('transform');
+    });
+    c.querySelectorAll('.eg-frame').forEach(f => { f.style.opacity = '0.5'; });
+    c.querySelectorAll('.eg-line').forEach(l => {
+      l.style.opacity = ''; l.removeAttribute('filter');
+      l.setAttribute('stroke-width','1.8'); l.setAttribute('stroke-opacity','0.28');
+    });
     const fp = el('egg-focus-panel');
     if (fp) { fp.classList.add('hidden'); fp.innerHTML = ''; }
   }
@@ -861,23 +1043,54 @@ function renderCard3() {
     const connected = new Set(myGroups.flatMap(g => g.spirits || []));
     connected.delete(name);
 
-    c.querySelectorAll('.eg-node').forEach(n => {
-      const s = n.dataset.spirit;
-      n.style.opacity = (s === name || connected.has(s)) ? '1' : '0.08';
+    // 以选中精灵为中心，半径覆盖所有相连精灵，再放大一圈
+    const sp = pos[name];
+    let radius = 110;
+    connected.forEach(n => {
+      if (!pos[n]) return;
+      const dx = pos[n].x - sp.x, dy = pos[n].y - sp.y;
+      radius = Math.max(radius, Math.sqrt(dx*dx+dy*dy) + nHW(n) + 60);
+    });
+    animateVB([sp.x - radius, sp.y - radius, radius * 2, radius * 2], 350);
+    if (svgEl) svgEl.style.cursor = 'zoom-out';
+
+    c.querySelectorAll('.eg-node').forEach(nd => {
+      if (nd.dataset.spirit === name) {
+        nd.style.opacity = '';
+        nd.setAttribute('filter', 'url(#eg-glow)');
+        // 以精灵自身坐标为原点放大，保持位置不偏移
+        nd.setAttribute('transform', `translate(${sp.x} ${sp.y}) scale(1.4) translate(${-sp.x} ${-sp.y})`);
+        nd.querySelectorAll('.eg-frame').forEach(f => { f.style.opacity = '1'; });
+      } else if (connected.has(nd.dataset.spirit)) {
+        nd.style.opacity = '';
+        nd.removeAttribute('filter');
+        nd.removeAttribute('transform');
+        nd.querySelectorAll('.eg-frame').forEach(f => { f.style.opacity = '1'; });
+      } else {
+        nd.style.opacity = '0.08';
+        nd.removeAttribute('filter');
+        nd.removeAttribute('transform');
+        nd.querySelectorAll('.eg-frame').forEach(f => { f.style.opacity = ''; });
+      }
     });
     c.querySelectorAll('.eg-line').forEach(l => {
       const relevant = myGroups.some(g => g.name === l.dataset.group);
-      if (relevant) { l.setAttribute('stroke-opacity','0.9'); l.setAttribute('stroke-width','2.8'); l.style.opacity = ''; }
-      else          { l.style.opacity = '0.03'; }
+      if (relevant) {
+        l.setAttribute('stroke-opacity','0.9');
+        l.setAttribute('stroke-width','2.8');
+        l.style.opacity = '';
+        l.setAttribute('filter', 'url(#eg-glow)');
+      } else {
+        l.style.opacity = '0.03';
+        l.removeAttribute('filter');
+      }
     });
 
     const fp = el('egg-focus-panel');
     if (!fp) return;
     fp.classList.remove('hidden');
     let html = `<b>${name}</b> 所属蛋组：`;
-    myGroups.forEach(g => {
-      html += `<span class="egg-group-tag" style="border-color:${gColor[g.name]};color:${gColor[g.name]}">${g.name}</span>`;
-    });
+    myGroups.forEach(g => { html += `<span class="egg-group-tag" style="border-color:${gColor[g.name]};color:${gColor[g.name]}">${g.name}</span>`; });
     html += connected.size
       ? `<br>可配蛋的精灵：<b>${[...connected].join('、')}</b>`
       : `<br><span style="color:var(--text-lt)">（此蛋组中暂无其他精灵）</span>`;
@@ -887,8 +1100,10 @@ function renderCard3() {
   }
 
   c.querySelectorAll('.eg-node-hit').forEach(hit => {
-    hit.addEventListener('click', () => focusSpirit(hit.dataset.spirit));
+    hit.addEventListener('click', e => { e.stopPropagation(); focusSpirit(hit.dataset.spirit); });
   });
+
+  if (svgEl) svgEl.addEventListener('click', unfocusAll);
 }
 
 // ══ 管理员弹窗：蛋组管理 ══════════════════════════════════════

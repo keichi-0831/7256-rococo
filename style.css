@@ -1373,16 +1373,16 @@ hr           { border: none; border-top: 2px dashed var(--border); margin: 16px 
 
 /* ══ 蛋组关系网 SVG 容器 ════════════════════════════════════════ */
 .egg-graph-wrap {
-  overflow-x: auto;
   border: 1.5px solid var(--border);
   border-radius: var(--r-sm);
-  background: #fafaf7;
+  background: #e6e2d6;
   padding: 6px 4px;
+  overflow: hidden;
 }
 .egg-svg {
   display: block;
   width: 100%;
-  min-width: 560px;
+  max-width: 1000px;
   height: auto;
 }
 .eg-node { transition: opacity .18s; }
