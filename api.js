@@ -184,9 +184,11 @@ const API = {
     return data || [];
   },
 
-  async createSpirit(name, element = '', starValue = null) {
+  async createSpirit(name, element = '', sv1 = null, sv2 = null, sv3 = null) {
     const row = { name, element };
-    if (starValue !== null) row.star_value = starValue;
+    if (sv1 !== null) row.star_value_1 = sv1;
+    if (sv2 !== null) row.star_value_2 = sv2;
+    if (sv3 !== null) row.star_value_3 = sv3;
     const { error } = await db.from('spirits').insert(row);
     if (error) throw new Error(error.message);
   },
@@ -201,11 +203,13 @@ const API = {
     if (error) throw new Error(error.message);
   },
 
-  // name 冲突时更新 element / star_value（upsert by name）
+  // name 冲突时更新 element / star_value_1/2/3（upsert by name）
   async importSpirits(list) {
     for (const s of list) {
       const row = { name: s.name, element: s.element || '' };
-      if (s.star_value != null) row.star_value = s.star_value;
+      if (s.star_value_1 != null) row.star_value_1 = s.star_value_1;
+      if (s.star_value_2 != null) row.star_value_2 = s.star_value_2;
+      if (s.star_value_3 != null) row.star_value_3 = s.star_value_3;
       const { error } = await db.from('spirits').upsert(row, { onConflict: 'name' });
       if (error) throw new Error(error.message);
     }

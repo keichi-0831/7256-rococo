@@ -68,8 +68,27 @@ function sElements(name) {
   return e ? e.split(',').filter(Boolean) : [];
 }
 
-// 星光值降序（null/undefined 沉底）
-const byStarDesc = (a, b) => (b.star_value ?? -Infinity) - (a.star_value ?? -Infinity);
+// 星光值降序（取各阶段最大值，null/undefined 沉底）
+const byStarDesc = (a, b) => {
+  const aMax = Math.max(a.star_value_1 ?? -Infinity, a.star_value_2 ?? -Infinity, a.star_value_3 ?? -Infinity);
+  const bMax = Math.max(b.star_value_1 ?? -Infinity, b.star_value_2 ?? -Infinity, b.star_value_3 ?? -Infinity);
+  return bMax - aMax;
+};
+
+// 生成各阶段星光值 badge 的 HTML 字符串（null 阶段跳过）
+function starBadges(s) {
+  const stages = [
+    { v: s.star_value_1, cls: 'star-v1' },
+    { v: s.star_value_2, cls: 'star-v2' },
+    { v: s.star_value_3, cls: 'star-v3' },
+  ].filter(x => x.v != null);
+  if (!stages.length) return '';
+  return '<span class="star-value-wrap">'
+    + stages.map((x, i) =>
+        `${i > 0 ? '<span class="star-sep">/</span>' : ''}<span class="star-value-badge ${x.cls}">◆${x.v}</span>`
+      ).join('')
+    + '</span>';
+}
 
 // ══ 精灵勾选清单（用于赛季编辑） ══════════════════════════════
 // container: DOM 元素；selectedNames: Set<string>（持久化）
@@ -670,11 +689,18 @@ function renderCard2() {
       st.textContent = '本季';
       nameDiv.appendChild(st);
     }
-    if (sp.star_value != null) {
-      const sv = document.createElement('span');
-      sv.className = 'star-value-badge';
-      sv.textContent = `◆${sp.star_value}`;
-      nameDiv.appendChild(sv);
+    const starStages = [
+      { v: sp.star_value_1, cls: 'star-v1' },
+      { v: sp.star_value_2, cls: 'star-v2' },
+      { v: sp.star_value_3, cls: 'star-v3' },
+    ].filter(x => x.v != null);
+    if (starStages.length) {
+      const wrap = document.createElement('span');
+      wrap.className = 'star-value-wrap';
+      wrap.innerHTML = starStages.map((x, i) =>
+        `${i > 0 ? '<span class="star-sep">/</span>' : ''}<span class="star-value-badge ${x.cls}">◆${x.v}</span>`
+      ).join('');
+      nameDiv.appendChild(wrap);
     }
     row.appendChild(nameDiv);
 
@@ -1226,19 +1252,27 @@ function showManageSpirits() {
     <div id="spirits-area"></div>
     <hr>
     <div class="modal-sub">新增精灵</div>
-    <div class="add-spirit-form">
-      <input id="nspr-name" type="text" placeholder="精灵名称（如：异色火焰犬）">
-      <select id="nspr-elem1">
-        <option value="">— 系别 —</option>
-        ${ELEMENTS.map(e => `<option value="${e}">${e}</option>`).join('')}
-      </select>
-      <select id="nspr-elem2">
-        <option value="">（第二系别）</option>
-        ${ELEMENTS.map(e => `<option value="${e}">${e}</option>`).join('')}
-      </select>
-      <input id="nspr-star" type="number" min="0" placeholder="◆星光值" class="star-inp">
-      <button class="btn btn-primary btn-sm" id="nspr-ok">添加</button>
+    <div class="form-row"><label>精灵名称</label><input id="nspr-name" type="text" placeholder="精灵名称（如：异色火焰犬）"></div>
+    <div class="form-row"><label>系别</label>
+      <div class="spirit-form-row">
+        <select id="nspr-elem1">
+          <option value="">— 系别 —</option>
+          ${ELEMENTS.map(e => `<option value="${e}">${e}</option>`).join('')}
+        </select>
+        <select id="nspr-elem2">
+          <option value="">（第二系别）</option>
+          ${ELEMENTS.map(e => `<option value="${e}">${e}</option>`).join('')}
+        </select>
+      </div>
     </div>
+    <div class="form-row"><label>◆ 星光值 <span class="hint">（各阶段选填）</span></label>
+      <div class="spirit-form-row">
+        <input id="nspr-star1" type="number" min="0" placeholder="一阶段">
+        <input id="nspr-star2" type="number" min="0" placeholder="二阶段">
+        <input id="nspr-star3" type="number" min="0" placeholder="三阶段">
+      </div>
+    </div>
+    <button class="btn btn-primary btn-sm" id="nspr-ok">添加</button>
     <details class="import-section">
       <summary>📥 JSON 批量导入精灵</summary>
       <div class="import-content">
@@ -1252,20 +1286,27 @@ function showManageSpirits() {
   _renderSpiritsList();
 
   el('nspr-ok').onclick = async () => {
-    const name    = el('nspr-name').value.trim();
-    const elem1   = el('nspr-elem1').value;
-    const elem2   = el('nspr-elem2').value;
-    const elem    = [elem1, elem2].filter(Boolean).join(',');
-    const starRaw = el('nspr-star').value.trim();
-    const starVal = starRaw !== '' ? parseInt(starRaw) : null;
+    const name  = el('nspr-name').value.trim();
+    const elem1 = el('nspr-elem1').value;
+    const elem2 = el('nspr-elem2').value;
+    const elem  = [elem1, elem2].filter(Boolean).join(',');
+    const r1 = el('nspr-star1').value.trim();
+    const r2 = el('nspr-star2').value.trim();
+    const r3 = el('nspr-star3').value.trim();
     if (!name) { alert('请填写精灵名称'); return; }
     try {
-      await API.createSpirit(name, elem, starVal);
+      await API.createSpirit(name, elem,
+        r1 !== '' ? parseInt(r1) : null,
+        r2 !== '' ? parseInt(r2) : null,
+        r3 !== '' ? parseInt(r3) : null,
+      );
       S.spirits = await API.getSpirits();
       el('nspr-name').value = '';
       el('nspr-elem1').value = '';
       el('nspr-elem2').value = '';
-      el('nspr-star').value = '';
+      el('nspr-star1').value = '';
+      el('nspr-star2').value = '';
+      el('nspr-star3').value = '';
       _renderSpiritsList();
     } catch (e) { alert('添加失败：' + (e.message.includes('spirits_name_unique') ? '该精灵已存在' : e.message)); }
   };
@@ -1329,7 +1370,7 @@ function _renderSpiritsList() {
         <div class="list-item-main">
           <b>${s.name}</b>
           ${(s.element||'').split(',').filter(Boolean).map(e=>`<span class="elem-badge" style="margin-left:6px">${e}</span>`).join('')}
-          ${s.star_value != null ? `<span class="star-value-badge" style="margin-left:6px">◆${s.star_value}</span>` : ''}
+          ${starBadges(s)}
         </div>
         <button class="btn btn-secondary btn-sm" onclick="adminEditSpirit('${s.id}')">编辑</button>
         <button class="btn btn-danger btn-sm" onclick="adminDelSpirit('${s.id}','${s.name}')">删除</button>
@@ -1400,8 +1441,12 @@ function adminEditSpirit(id) {
         ${ELEMENTS.map(e => `<option value="${e}" ${elem2===e?'selected':''}>${e}</option>`).join('')}
       </select>
     </div>
-    <div class="form-row"><label>◆ 星光值 <span class="hint">（选填，整数）</span></label>
-      <input id="esp-star" type="number" min="0" value="${s.star_value ?? ''}">
+    <div class="form-row"><label>◆ 星光值 <span class="hint">（各阶段选填）</span></label>
+      <div class="spirit-form-row">
+        <input id="esp-star1" type="number" min="0" placeholder="一阶段" value="${s.star_value_1 ?? ''}">
+        <input id="esp-star2" type="number" min="0" placeholder="二阶段" value="${s.star_value_2 ?? ''}">
+        <input id="esp-star3" type="number" min="0" placeholder="三阶段" value="${s.star_value_3 ?? ''}">
+      </div>
     </div>
     <div class="flex-row">
       <button class="btn btn-primary" id="esp-ok">保存</button>
@@ -1410,15 +1455,21 @@ function adminEditSpirit(id) {
   `);
   el('esp-back').onclick = () => showManageSpirits();
   el('esp-ok').onclick = async () => {
-    const name    = el('esp-name').value.trim();
-    const e1      = el('esp-elem1').value;
-    const e2      = el('esp-elem2').value;
-    const elem    = [e1, e2].filter(Boolean).join(',');
-    const starRaw = el('esp-star').value.trim();
-    const starVal = starRaw !== '' ? parseInt(starRaw) : null;
+    const name = el('esp-name').value.trim();
+    const e1   = el('esp-elem1').value;
+    const e2   = el('esp-elem2').value;
+    const elem = [e1, e2].filter(Boolean).join(',');
+    const r1 = el('esp-star1').value.trim();
+    const r2 = el('esp-star2').value.trim();
+    const r3 = el('esp-star3').value.trim();
     if (!name) { alert('精灵名称不能为空'); return; }
     try {
-      await API.updateSpirit(id, { name, element: elem, star_value: starVal });
+      await API.updateSpirit(id, {
+        name, element: elem,
+        star_value_1: r1 !== '' ? parseInt(r1) : null,
+        star_value_2: r2 !== '' ? parseInt(r2) : null,
+        star_value_3: r3 !== '' ? parseInt(r3) : null,
+      });
       S.spirits = await API.getSpirits();
       showManageSpirits();
     } catch (e) { alert('保存失败：' + e.message); }

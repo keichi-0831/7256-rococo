@@ -872,16 +872,22 @@ hr           { border: none; border-top: 2px dashed var(--border); margin: 16px 
 }
 
 
-/* ══ 星光值标签 ══════════════════════════════════════════ */
+/* ══ 星光值标签（三阶段渐深蓝） ══════════════════════════ */
+.star-value-wrap {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+}
 .star-value-badge {
   display: inline-block;
   font-size: 10px;
-  color: rgba(80, 160, 220, 0.70);
   font-weight: 700;
-  margin-left: 6px;
-  vertical-align: middle;
   letter-spacing: 0.2px;
 }
+.star-v1 { color: rgba(80, 160, 220, 0.50); }
+.star-v2 { color: rgba(80, 160, 220, 0.75); }
+.star-v3 { color: rgba(80, 160, 220, 1.00); }
+.star-sep { font-size: 9px; color: rgba(80, 160, 220, 0.35); margin: 0 2px; }
 
 
 /* ══ 精灵系别徽章（精灵果实列表） ══════════════════════════ */
@@ -1027,10 +1033,15 @@ hr           { border: none; border-top: 2px dashed var(--border); margin: 16px 
   align-items: center;
   flex-wrap: wrap;
 }
-.add-spirit-form .star-inp {
-  flex: none;
-  width: 90px;
+
+/* 精灵编辑表单：系别/星光值横排子行 */
+.spirit-form-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
+.spirit-form-row select { flex: 1; min-width: 80px; }
+.form-row .spirit-form-row input[type=number] { width: 88px; flex: none; }
 .add-spirit-form input {
   flex: 1;
   min-width: 0;
