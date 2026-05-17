@@ -759,7 +759,8 @@ function _eggForceLayout(allNames, spiritGroups, eggGroups, W, H) {
   // 初始同心圆环：内圈半径不为 0，避免多节点挤在同一个点
   const cx = W / 2, cy = H / 2;
   const sorted = [...allNames].sort((a, b) => breedCnt[b] - breedCnt[a]);
-  const RINGS = [75, H * 0.28, H * 0.42, H * 0.48];
+  const R = Math.min(W, H);
+  const RINGS = [75, R * 0.28, R * 0.42, R * 0.48];
   const buckets = RINGS.map(() => []);
   sorted.forEach(n => {
     const t = maxBC > 1 ? 1 - (breedCnt[n] - 1) / (maxBC - 1) : 0;
@@ -887,8 +888,10 @@ function renderCard3() {
   const NODE_W = INNER_W + 2 * GAP * maxB;
   const NODE_H = INNER_H + 2 * GAP * maxB;
 
-  // 力导向布局（宽画布，节点自适应分布）
-  const SVG_W = 1000, SVG_H = 500;
+  // 力导向布局（竖屏手机纵向展开，桌面宽画布）
+  const isMobile = window.innerWidth < 640;
+  const SVG_W = isMobile ? 700  : 1000;
+  const SVG_H = isMobile ? 1400 : 500;
   const pos = _eggForceLayout(allNames, spiritGroups, S.eggGroups, SVG_W, SVG_H);
 
   // 各节点外框半尺寸
@@ -1104,6 +1107,13 @@ function renderCard3() {
   });
 
   if (svgEl) svgEl.addEventListener('click', unfocusAll);
+
+  // 转屏 / 调整窗口时重新渲染
+  if (window._eggResizeOff) window._eggResizeOff();
+  let _resizeT;
+  const _resizeFn = () => { clearTimeout(_resizeT); _resizeT = setTimeout(renderCard3, 350); };
+  window.addEventListener('resize', _resizeFn);
+  window._eggResizeOff = () => window.removeEventListener('resize', _resizeFn);
 }
 
 // ══ 管理员弹窗：蛋组管理 ══════════════════════════════════════
