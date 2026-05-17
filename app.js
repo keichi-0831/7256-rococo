@@ -1,7 +1,7 @@
 // app.js — 主逻辑
 
 // ══ 常量 ══════════════════════════════════════════════════════
-const ELEMENTS  = ['土','火','冰','幽','武','水','萌','恶','光','翼','机械','龙','幻','草','电','毒','虫','普通'];
+const ELEMENTS  = ['地','火','冰','幽','武','水','萌','恶','光','翼','机械','龙','幻','草','电','毒','虫','普通'];
 const LOCATIONS = ['风眠省', '洛克里安'];
 
 // ══ 全局状态 ══════════════════════════════════════════════════
@@ -22,6 +22,7 @@ const S = {
   collapsedLocations: new Set(),
   expandedComments:   new Set(),
   fruitFilter:        { elements: new Set(), mode: 'union' },
+  draftComments:      {},  // sanc.id → 正在编辑但未提交的评论文本
 };
 
 // 管理精灵弹窗当前系别筛选（跨 _renderSpiritsList 重绘保持状态）
@@ -66,6 +67,9 @@ function sElements(name) {
   const e = sElement(name);
   return e ? e.split(',').filter(Boolean) : [];
 }
+
+// 星光值降序（null/undefined 沉底）
+const byStarDesc = (a, b) => (b.star_value ?? -Infinity) - (a.star_value ?? -Infinity);
 
 // ══ 精灵勾选清单（用于赛季编辑） ══════════════════════════════
 // container: DOM 元素；selectedNames: Set<string>（持久化）
@@ -533,12 +537,14 @@ function buildRatingBar(sanc, ratings, redCnt, yelCnt, grnCnt) {
     ta.className = 'my-comment-ta';
     ta.placeholder = '说说你打分的理由~（可选）';
     ta.rows = 2;
-    ta.value = myRating.comment || '';
+    ta.value = S.draftComments[sanc.id] ?? (myRating.comment || '');
+    ta.oninput = () => { S.draftComments[sanc.id] = ta.value; };
     const submitBtn = document.createElement('button');
     submitBtn.className = 'btn btn-primary btn-sm';
     submitBtn.textContent = '提交';
     submitBtn.onclick = () => {
       const comment = ta.value.trim();
+      delete S.draftComments[sanc.id];
       const rec = S.sancRatings.find(r => r.user_id === S.user.id && r.sanctuary_id === sanc.id);
       if (rec) rec.comment = comment;
       renderCard1();
@@ -580,35 +586,25 @@ function renderCard2() {
   const seasonSpiritNames = new Set((curSeason()?.spirits || []).map(sName).filter(Boolean));
   const ff = S.fruitFilter;
 
-  // 系别筛选
+  // 系别筛选（单选）
   let displaySpirits = S.spirits;
   if (ff.elements.size > 0) {
-    const sel = [...ff.elements];
-    displaySpirits = S.spirits.filter(sp => {
-      const spElems = (sp.element || '').split(',').filter(Boolean);
-      return ff.mode === 'union'
-        ? sel.some(e => spElems.includes(e))
-        : sel.every(e => spElems.includes(e));
-    });
+    const sel = [...ff.elements][0];
+    displaySpirits = S.spirits.filter(sp =>
+      (sp.element || '').split(',').filter(Boolean).includes(sel)
+    );
   }
 
-  // 赛季精灵置顶
+  // 赛季精灵置顶，各组内按星光值降序
   displaySpirits = [
-    ...displaySpirits.filter(sp =>  seasonSpiritNames.has(sp.name)),
-    ...displaySpirits.filter(sp => !seasonSpiritNames.has(sp.name)),
+    ...displaySpirits.filter(sp =>  seasonSpiritNames.has(sp.name)).sort(byStarDesc),
+    ...displaySpirits.filter(sp => !seasonSpiritNames.has(sp.name)).sort(byStarDesc),
   ];
 
   // 精灵库中实际出现的系别（保持 ELEMENTS 顺序）
   const allUsedElems = ELEMENTS.filter(e =>
     S.spirits.some(sp => (sp.element || '').split(',').includes(e))
   );
-
-  const modeHtml = ff.elements.size >= 2 ? `
-    <div class="filter-mode-toggle">
-      <span class="filter-mode-label">多选：</span>
-      <button type="button" class="mode-btn${ff.mode === 'union'        ? ' active' : ''}" data-mode="union">并集</button>
-      <button type="button" class="mode-btn${ff.mode === 'intersection' ? ' active' : ''}" data-mode="intersection">交集</button>
-    </div>` : '';
 
   c.innerHTML = `
     <div class="fruit-filter-bar">
@@ -618,7 +614,6 @@ function renderCard2() {
           <button type="button" class="elem-btn${ff.elements.has(e) ? ' active' : ''}" data-elem="${e}">${e}</button>
         `).join('')}
       </div>
-      ${modeHtml}
     </div>
     <div id="fruit-rows"></div>`;
 
@@ -626,12 +621,11 @@ function renderCard2() {
   c.querySelectorAll('.fruit-elem-wrap .elem-btn[data-elem]').forEach(btn => {
     btn.onclick = () => {
       const e = btn.dataset.elem;
-      if (ff.elements.has(e)) ff.elements.delete(e); else ff.elements.add(e);
+      const wasActive = ff.elements.has(e);
+      ff.elements.clear();
+      if (!wasActive) ff.elements.add(e);
       renderCard2();
     };
-  });
-  c.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.onclick = () => { ff.mode = btn.dataset.mode; renderCard2(); };
   });
 
   const rowsEl = el('fruit-rows');
@@ -676,6 +670,12 @@ function renderCard2() {
       st.textContent = '本季';
       nameDiv.appendChild(st);
     }
+    if (sp.star_value != null) {
+      const sv = document.createElement('span');
+      sv.className = 'star-value-badge';
+      sv.textContent = `◆${sp.star_value}`;
+      nameDiv.appendChild(sv);
+    }
     row.appendChild(nameDiv);
 
     const holdersDiv = document.createElement('div');
@@ -717,10 +717,10 @@ function openSpiritPicker(sanc, slot, spirits, current) {
 
   const seasonNames = new Set((spirits || []).map(sName).filter(Boolean));
 
-  // 所有精灵，赛季精灵置顶
+  // 所有精灵，赛季精灵置顶，各组内按星光值降序
   const allObjs = [
-    ...S.spirits.filter(sp =>  seasonNames.has(sp.name)),
-    ...S.spirits.filter(sp => !seasonNames.has(sp.name)),
+    ...S.spirits.filter(sp =>  seasonNames.has(sp.name)).sort(byStarDesc),
+    ...S.spirits.filter(sp => !seasonNames.has(sp.name)).sort(byStarDesc),
   ];
 
   let activeElem = '';
@@ -776,7 +776,7 @@ function openSpiritPicker(sanc, slot, spirits, current) {
 
     showModal(html);
 
-    document.querySelectorAll('.elem-btn').forEach(btn => {
+    el('modal-body').querySelectorAll('.elem-btn').forEach(btn => {
       btn.onclick = () => { activeElem = btn.dataset.elem; renderPicker(); };
     });
 
@@ -1236,6 +1236,7 @@ function showManageSpirits() {
         <option value="">（第二系别）</option>
         ${ELEMENTS.map(e => `<option value="${e}">${e}</option>`).join('')}
       </select>
+      <input id="nspr-star" type="number" min="0" placeholder="◆星光值" class="star-inp">
       <button class="btn btn-primary btn-sm" id="nspr-ok">添加</button>
     </div>
     <details class="import-section">
@@ -1251,17 +1252,20 @@ function showManageSpirits() {
   _renderSpiritsList();
 
   el('nspr-ok').onclick = async () => {
-    const name  = el('nspr-name').value.trim();
-    const elem1 = el('nspr-elem1').value;
-    const elem2 = el('nspr-elem2').value;
-    const elem  = [elem1, elem2].filter(Boolean).join(',');
+    const name    = el('nspr-name').value.trim();
+    const elem1   = el('nspr-elem1').value;
+    const elem2   = el('nspr-elem2').value;
+    const elem    = [elem1, elem2].filter(Boolean).join(',');
+    const starRaw = el('nspr-star').value.trim();
+    const starVal = starRaw !== '' ? parseInt(starRaw) : null;
     if (!name) { alert('请填写精灵名称'); return; }
     try {
-      await API.createSpirit(name, elem);
+      await API.createSpirit(name, elem, starVal);
       S.spirits = await API.getSpirits();
       el('nspr-name').value = '';
       el('nspr-elem1').value = '';
       el('nspr-elem2').value = '';
+      el('nspr-star').value = '';
       _renderSpiritsList();
     } catch (e) { alert('添加失败：' + (e.message.includes('spirits_name_unique') ? '该精灵已存在' : e.message)); }
   };
@@ -1325,7 +1329,9 @@ function _renderSpiritsList() {
         <div class="list-item-main">
           <b>${s.name}</b>
           ${(s.element||'').split(',').filter(Boolean).map(e=>`<span class="elem-badge" style="margin-left:6px">${e}</span>`).join('')}
+          ${s.star_value != null ? `<span class="star-value-badge" style="margin-left:6px">◆${s.star_value}</span>` : ''}
         </div>
+        <button class="btn btn-secondary btn-sm" onclick="adminEditSpirit('${s.id}')">编辑</button>
         <button class="btn btn-danger btn-sm" onclick="adminDelSpirit('${s.id}','${s.name}')">删除</button>
       </div>`).join('')}
   `;
@@ -1371,6 +1377,52 @@ function _renderSpiritsList() {
       } catch (e) { alert('操作失败：' + e.message); }
     };
   }
+}
+
+function adminEditSpirit(id) {
+  const s = S.spirits.find(x => x.id === id);
+  if (!s) return;
+  const parts = (s.element || '').split(',');
+  const elem1 = parts[0] || '';
+  const elem2 = parts[1] || '';
+  showModal(`
+    <div class="modal-title">✏️ 编辑精灵</div>
+    <div class="form-row"><label>精灵名称</label><input id="esp-name" type="text" value="${s.name}"></div>
+    <div class="form-row"><label>第一系别</label>
+      <select id="esp-elem1">
+        <option value="">— 系别 —</option>
+        ${ELEMENTS.map(e => `<option value="${e}" ${elem1===e?'selected':''}>${e}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row"><label>第二系别 <span class="hint">（选填）</span></label>
+      <select id="esp-elem2">
+        <option value="">（无）</option>
+        ${ELEMENTS.map(e => `<option value="${e}" ${elem2===e?'selected':''}>${e}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row"><label>◆ 星光值 <span class="hint">（选填，整数）</span></label>
+      <input id="esp-star" type="number" min="0" value="${s.star_value ?? ''}">
+    </div>
+    <div class="flex-row">
+      <button class="btn btn-primary" id="esp-ok">保存</button>
+      <button class="btn btn-secondary" id="esp-back">← 返回</button>
+    </div>
+  `);
+  el('esp-back').onclick = () => showManageSpirits();
+  el('esp-ok').onclick = async () => {
+    const name    = el('esp-name').value.trim();
+    const e1      = el('esp-elem1').value;
+    const e2      = el('esp-elem2').value;
+    const elem    = [e1, e2].filter(Boolean).join(',');
+    const starRaw = el('esp-star').value.trim();
+    const starVal = starRaw !== '' ? parseInt(starRaw) : null;
+    if (!name) { alert('精灵名称不能为空'); return; }
+    try {
+      await API.updateSpirit(id, { name, element: elem, star_value: starVal });
+      S.spirits = await API.getSpirits();
+      showManageSpirits();
+    } catch (e) { alert('保存失败：' + e.message); }
+  };
 }
 
 async function adminDelSpirit(id, name) {
