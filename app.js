@@ -174,10 +174,10 @@ async function loadAll() {
   ]);
   // 蛋组表是新增的，若未运行新建表脚本则降级为空
   try { S.eggGroups = await API.getEggGroups(); } catch { S.eggGroups = []; }
-  if (!S.currentSeasonId && S.seasons.length) {
+  if (S.seasons.length) {
     const today = new Date().toISOString().slice(0, 10);
     const active = S.seasons.find(s => s.start_date <= today && s.end_date >= today);
-    S.currentSeasonId = (active || S.seasons[0]).id;
+    S.currentSeasonId = (active || S.currentSeasonId || S.seasons[0]).id;
   }
   await loadSeasonData();
 }
@@ -963,7 +963,7 @@ function renderCard3() {
     for (let i = 0; i < ms.length - 1; i++) {
       for (let j = i + 1; j < ms.length; j++) {
         const d = routeLine(ms[i], ms[j]);
-        linesSVG += `<path class="eg-line" data-group="${g.name}" d="${d}" stroke="${gColor[g.name]}" stroke-width="1.8" stroke-opacity="0.28" fill="none" stroke-linecap="round"/>`;
+        linesSVG += `<path class="eg-line" data-group="${g.name}" data-from="${ms[i]}" data-to="${ms[j]}" d="${d}" stroke="${gColor[g.name]}" stroke-width="1.8" stroke-opacity="0.28" fill="none" stroke-linecap="round"/>`;
       }
     }
   });
@@ -1077,8 +1077,8 @@ function renderCard3() {
       }
     });
     c.querySelectorAll('.eg-line').forEach(l => {
-      const relevant = myGroups.some(g => g.name === l.dataset.group);
-      if (relevant) {
+      const touches = l.dataset.from === name || l.dataset.to === name;
+      if (touches) {
         l.setAttribute('stroke-opacity','0.9');
         l.setAttribute('stroke-width','2.8');
         l.style.opacity = '';
